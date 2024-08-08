@@ -1,0 +1,26 @@
+{
+    "build": {
+        "dockerfile": "Dockerfile"
+    },
+    "customizations": {
+        "vscode": {
+            "extensions": [
+                "streetsidesoftware.code-spell-checker",
+                "ms-vscode.cpptools",
+                "ms-vscode.cpptools-themes",
+                "jeff-hykin.better-cpp-syntax",
+                "twxs.cmake",
+                "ms-vscode.cmake-tools",
+                "ms-azuretools.vscode-docker",
+                "GitHub.copilot",
+                "GitHub.copilot-chat"
+            ]
+        }
+    },
+    "forwardPorts": [
+        3000
+    ],
+    "mounts": [
+        "source=/home/tux/dc-share,target=/shared,type=bind,consistency=cached"
+    ]
+}
