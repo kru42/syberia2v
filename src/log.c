@@ -1,42 +1,47 @@
 #include "log.h"
 #include <vitasdk.h>
 
-static FILE* log_file = NULL;
+static SceUID* log_handle = NULL;
 
 static void init_log_file(void)
 {
-    if (log_file == NULL)
+    if (log_handle == NULL)
     {
-        log_file = fopen(LOG_FILE_PATH, "a");
-        if (log_file == NULL)
+        log_handle = sceIoOpen(LOG_FILE_PATH, SCE_O_WRONLY | SCE_O_CREAT | SCE_O_TRUNC, 0777);
+        if (log_handle < 0)
         {
-            perror("Failed to open log file");
+            printf("===> WARNING: Failed to open log file: %s\n", LOG_FILE_PATH);
         }
     }
 }
 
-void log_message(const char* format, ...)
+void log_info(const char* format, ...)
 {
-    if (log_file == NULL)
+    if (log_handle == NULL)
     {
         init_log_file();
     }
 
-    if (log_file != NULL)
+    if (log_handle != NULL)
     {
+        char log_buffer[1024];
+
         va_list args;
         va_start(args, format);
-        vfprintf(log_file, format, args);
+        vsnprintf(log_buffer, sizeof(log_buffer), format, args);
         va_end(args);
-        fflush(log_file);
+
+        sceIoWrite(log_handle, log_buffer, strlen(log_buffer));
+
+        sceIoSyncByFd(log_handle, NULL);
     }
 }
 
 void close_log_file(void)
 {
-    if (log_file != NULL)
+    if (log_handle != NULL)
     {
-        fclose(log_file);
-        log_file = NULL;
+        sceIoClose(log_handle);
+        log_handle = NULL;
     }
 }

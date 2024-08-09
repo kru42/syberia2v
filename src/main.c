@@ -23,6 +23,7 @@
 #include "dialog.h"
 #include "jni.h"
 #include "util.h"
+#include "log.h"
 
 #define LOAD_ADDRESS 0x98000000
 #define printf psvDebugScreenPrintf
@@ -48,7 +49,72 @@ void* __wrap_memset(void* s, int c, size_t n)
 
 void import_placeholder()
 {
+    log_info("import placeholder called.\n");
     fatal_error("import placeholder called.\n");
+}
+
+void* dlopen_hook(const char* filename, int flags)
+{
+    log_info("dlopen called: %s\n", filename);
+    return (void*)0xBADC0DE;
+}
+
+const char* gl_ret0[] = {
+    "glDeleteRenderbuffers",
+    "glDiscardFramebufferEXT",
+    "glFramebufferRenderbuffer",
+    "glGenRenderbuffers",
+    "glBindRenderbuffer",
+    "glHint",
+    "glLightf",
+    "glMaterialx",
+    "glNormalPointer",
+    "glPixelStorei",
+    "glRenderbufferStorage",
+    "glShadeModel",
+};
+static size_t gl_numret = sizeof(gl_ret0) / sizeof(*gl_ret0);
+
+static so_default_dynlib gl_hook[] = {
+    {"glCompileShader", (uintptr_t)&ret0},
+    // {"glShaderSource", (uintptr_t)&glShaderSourceHook},
+    // {"glTexParameterf", (uintptr_t)&glTexParameterfHook},
+    // {"glTexParameteri", (uintptr_t)&glTexParameteriHook},
+    // {"glBindFramebuffer", (uintptr_t)&glBindFramebufferHook},
+    // {"glReadPixels", (uintptr_t)&glReadPixelsHook},
+};
+static size_t gl_numhook = sizeof(gl_hook) / sizeof(*gl_hook);
+
+void* dlsym_hook(void* handle, const char* symbol)
+{
+    log_info("dlsym called: %s\n", symbol);
+
+    for (size_t i = 0; i < gl_numret; ++i)
+    {
+        if (!strcmp(symbol, gl_ret0[i]))
+        {
+            return ret0;
+        }
+    }
+    for (size_t i = 0; i < gl_numhook; ++i)
+    {
+        if (!strcmp(symbol, gl_hook[i].symbol))
+        {
+            return (void*)gl_hook[i].func;
+        }
+    }
+    return vglGetProcAddress(symbol);
+}
+
+int fstat_hook(int fd, struct stat* buf)
+{
+    log_info("fstat called: %d\tfile size: %d\n", fd, buf->st_size);
+    struct stat st;
+    int         res = fstat(fd, &st);
+    if (res == 0)
+        *(uint64_t*)(buf + 0x30) = st.st_size;
+
+    return res;
 }
 
 int __android_log_print(int prio, const char* tag, const char* fmt, ...)
@@ -57,6 +123,7 @@ int __android_log_print(int prio, const char* tag, const char* fmt, ...)
     static char string[0x8000];
 
     va_start(list, fmt);
+    log_info("---> %s | %s\n", __func__, list);
     vsprintf(string, fmt, list);
     va_end(list);
 
@@ -68,7 +135,7 @@ int __android_log_print(int prio, const char* tag, const char* fmt, ...)
 int __android_log_vprint(int prio, const char* tag, const char* fmt, va_list list)
 {
     static char string[0x8000];
-
+    log_info("---> %s | %s\n", __func__, list);
     vsprintf(string, fmt, list);
     va_end(list);
 
@@ -88,6 +155,287 @@ int munmap(void* addr, size_t length)
     return 0;
 }
 
+int pthread_mutex_init_fake(pthread_mutex_t** uid, const pthread_mutexattr_t* mutexattr)
+{
+    pthread_mutex_t* m = vglCalloc(1, sizeof(pthread_mutex_t));
+    if (!m)
+        return -1;
+
+    const int recursive = (mutexattr && *(const int*)mutexattr == 1);
+    *m                  = recursive ? PTHREAD_RECURSIVE_MUTEX_INITIALIZER : PTHREAD_MUTEX_INITIALIZER;
+
+    int ret = pthread_mutex_init(m, mutexattr);
+    if (ret < 0)
+    {
+        free(m);
+        return -1;
+    }
+
+    *uid = m;
+
+    return 0;
+}
+
+int pthread_attr_init_fake(pthread_attr_t** attr)
+{
+    log_info("---> %s\n", __func__);
+
+    *attr = vglCalloc(1, sizeof(pthread_attr_t));
+    return 0;
+}
+
+int pthread_getspecific_fake(pthread_key_t key)
+{
+    log_info("---> %s\n", __func__);
+
+    return (int)pthread_getspecific(key);
+}
+
+int pthread_setspecific_fake(pthread_key_t key, const void* value)
+{
+    log_info("---> %s\n", __func__);
+
+    return pthread_setspecific(key, value);
+}
+
+int pthread_join_fake(pthread_t thread, void** value_ptr)
+{
+    log_info("---> %s\n", __func__);
+
+    return pthread_join(thread, value_ptr);
+}
+
+int pthread_key_create_fake(pthread_key_t* key, void (*destructor)(void*))
+{
+    log_info("---> %s\n", __func__);
+
+    return pthread_key_create(key, destructor);
+}
+
+int pthread_key_delete_fake(pthread_key_t key)
+{
+    log_info("---> %s\n", __func__);
+
+    return pthread_key_delete(key);
+}
+
+int pthread_mutexattr_init_fake(pthread_mutexattr_t* attr)
+{
+    log_info("---> %s\n", __func__);
+    return pthread_mutexattr_init(attr);
+}
+
+int pthread_mutexattr_destroy_fake(pthread_mutexattr_t* attr)
+{
+    log_info("---> %s\n", __func__);
+    return pthread_mutexattr_destroy(attr);
+}
+
+int pthread_mutexattr_settype_fake(pthread_mutexattr_t* attr, int type)
+{
+    log_info("---> %s\n", __func__);
+    return pthread_mutexattr_settype(attr, type);
+}
+
+int pthread_setschedparam_fake(pthread_t thread, int policy, const struct sched_param* param)
+{
+    log_info("---> %s\n", __func__);
+    return pthread_setschedparam(thread, policy, param);
+}
+
+int pthread_attr_setdetachstate_fake(pthread_attr_t** attr, int detachstate)
+{
+    log_info("---> %s\n", __func__);
+    if (!*attr)
+    {
+        if (pthread_attr_init_fake(attr) < 0)
+            return -1;
+    }
+    return pthread_attr_setdetachstate(*attr, detachstate);
+}
+
+int pthread_mutex_destroy_fake(pthread_mutex_t** uid)
+{
+    log_info("---> %s\n", __func__);
+    if (uid && *uid && (uintptr_t)*uid > 0x8000)
+    {
+        pthread_mutex_destroy(*uid);
+        vglFree(*uid);
+        *uid = NULL;
+    }
+    return 0;
+}
+
+int pthread_mutex_lock_fake(pthread_mutex_t** uid)
+{
+    log_info("---> %s\n", __func__);
+    int ret = 0;
+    if (!*uid)
+    {
+        ret = pthread_mutex_init_fake(uid, NULL);
+    }
+    else if ((uintptr_t)*uid == 0x4000)
+    {
+        pthread_mutexattr_t attr;
+        pthread_mutexattr_init(&attr);
+        pthread_mutexattr_settype(&attr, PTHREAD_MUTEX_RECURSIVE);
+        ret = pthread_mutex_init_fake(uid, &attr);
+        pthread_mutexattr_destroy(&attr);
+    }
+    else if ((uintptr_t)*uid == 0x8000)
+    {
+        pthread_mutexattr_t attr;
+        pthread_mutexattr_init(&attr);
+        pthread_mutexattr_settype(&attr, PTHREAD_MUTEX_ERRORCHECK);
+        ret = pthread_mutex_init_fake(uid, &attr);
+        pthread_mutexattr_destroy(&attr);
+    }
+    if (ret < 0)
+        return ret;
+    return pthread_mutex_lock(*uid);
+}
+
+int pthread_mutex_unlock_fake(pthread_mutex_t** uid)
+{
+    log_info("---> %s\n", __func__);
+    int ret = 0;
+    if (!*uid)
+    {
+        ret = pthread_mutex_init_fake(uid, NULL);
+    }
+    else if ((uintptr_t)*uid == 0x4000)
+    {
+        pthread_mutexattr_t attr;
+        pthread_mutexattr_init(&attr);
+        pthread_mutexattr_settype(&attr, PTHREAD_MUTEX_RECURSIVE);
+        ret = pthread_mutex_init_fake(uid, &attr);
+        pthread_mutexattr_destroy(&attr);
+    }
+    else if ((uintptr_t)*uid == 0x8000)
+    {
+        pthread_mutexattr_t attr;
+        pthread_mutexattr_init(&attr);
+        pthread_mutexattr_settype(&attr, PTHREAD_MUTEX_ERRORCHECK);
+        ret = pthread_mutex_init_fake(uid, &attr);
+        pthread_mutexattr_destroy(&attr);
+    }
+    if (ret < 0)
+        return ret;
+    return pthread_mutex_unlock(*uid);
+}
+
+int pthread_cond_init_fake(pthread_cond_t** cnd, const int* condattr)
+{
+    log_info("---> %s\n", __func__);
+    pthread_cond_t* c = vglCalloc(1, sizeof(pthread_cond_t));
+    if (!c)
+        return -1;
+
+    *c = PTHREAD_COND_INITIALIZER;
+
+    int ret = pthread_cond_init(c, NULL);
+    if (ret < 0)
+    {
+        free(c);
+        return -1;
+    }
+
+    *cnd = c;
+
+    return 0;
+}
+
+int pthread_cond_broadcast_fake(pthread_cond_t** cnd)
+{
+    log_info("---> %s\n", __func__);
+    if (!*cnd)
+    {
+        if (pthread_cond_init_fake(cnd, NULL) < 0)
+            return -1;
+    }
+    return pthread_cond_broadcast(*cnd);
+}
+
+int pthread_cond_signal_fake(pthread_cond_t** cnd)
+{
+    log_info("---> %s\n", __func__);
+
+    if (!*cnd)
+    {
+        if (pthread_cond_init_fake(cnd, NULL) < 0)
+            return -1;
+    }
+    return pthread_cond_signal(*cnd);
+}
+
+int pthread_cond_destroy_fake(pthread_cond_t** cnd)
+{
+    log_info("---> %s\n", __func__);
+    if (cnd && *cnd)
+    {
+        pthread_cond_destroy(*cnd);
+        vglFree(*cnd);
+        *cnd = NULL;
+    }
+    return 0;
+}
+
+int pthread_cond_wait_fake(pthread_cond_t** cnd, pthread_mutex_t** mtx)
+{
+    log_info("---> %s\n", __func__);
+    if (!*cnd)
+    {
+        if (pthread_cond_init_fake(cnd, NULL) < 0)
+            return -1;
+    }
+    return pthread_cond_wait(*cnd, *mtx);
+}
+
+int pthread_cond_timedwait_fake(pthread_cond_t** cnd, pthread_mutex_t** mtx, const struct timespec* t)
+{
+    log_info("---> %s\n", __func__);
+    if (!*cnd)
+    {
+        if (pthread_cond_init_fake(cnd, NULL) < 0)
+            return -1;
+    }
+    return pthread_cond_timedwait(*cnd, *mtx, t);
+}
+
+int pthread_create_fake(pthread_t* thread, const void* unused, void* entry, void* arg)
+{
+    log_info("---> %s\n", __func__);
+    return pthread_create(thread, NULL, entry, arg);
+}
+
+int pthread_once_fake(volatile int* once_control, void (*init_routine)(void))
+{
+    log_info("---> %s\n", __func__);
+    if (!once_control || !init_routine)
+        return -1;
+    if (__sync_lock_test_and_set(once_control, 1) == 0)
+        (*init_routine)();
+    return 0;
+}
+
+FILE* fopen_hook(const char* filename, const char* mode)
+{
+    log_info("fopen called: %s\n", filename);
+    fatal_error("die");
+    // char* s = strstr(filename, "ux0:");
+    // if (s)
+    //     filename = s + 1;
+    // else
+    // {
+    //     s = strstr(filename, "ux0:");
+    //     if (!s)
+    //     {
+    //         char patched_fname[256];
+    //         // sprintf(patched_fname, "%s%s", data_path_root, )
+    //     }
+    // }
+}
+
 extern void* __aeabi_atexit;
 // extern void* __assert2;
 extern void* __cxa_atexit;
@@ -96,312 +444,302 @@ extern void* __gnu_Unwind_Find_exidx;
 // extern void *__srget;
 extern void* __stack_chk_fail;
 
-// void patch_game()
-// {
-//     hook_addr(so_symbol(&syb2_mod, "AConfiguration_delete"), AConfiguration_delete);
-//     hook_addr(so_symbol(&syb2_mod, "AConfiguration_fromAssetManager"), );
-//     hook_addr(so_symbol(&syb2_mod, "AConfiguration_getCountry"), (uintptr_t)&import_placeholder);
-//     hook_addr(so_symbol(&syb2_mod, "AConfiguration_getDensity"), (uintptr_t)&import_placeholder);
-//     hook_addr(so_symbol(&syb2_mod, "AConfiguration_getDensity"), (uintptr_t)&import_placeholder);
-//     hook_addr(so_symbol(&syb2_mod, "AConfiguration_getDensity"), (uintptr_t)&import_placeholder);
-//     hook_addr(so_symbol(&syb2_mod, "AConfiguration_new"), (uintptr_t)&import_placeholder);
-// }
-
-static so_default_dynlib dynlib_functions[] = {{"__aeabi_atexit", (uintptr_t)&__aeabi_atexit},
-                                               {"__android_log_print", (uintptr_t)&__android_log_print},
-                                               {"__android_log_vprint", (uintptr_t)&__android_log_vprint},
-                                               {"__assert2", (uintptr_t)&import_placeholder},
-                                               {"__cxa_atexit", (uintptr_t)&__cxa_atexit},
-                                               {"__cxa_finalize", (uintptr_t)&__cxa_finalize},
-                                               {"__errno", (uintptr_t)&__errno},
-                                               {"__gnu_Unwind_Find_exidx", (uintptr_t)&import_placeholder}, // idk
-                                               {"__srget", (uintptr_t)&import_placeholder},
-                                               {"__stack_chk_fail", (uintptr_t)&import_placeholder},
-                                               {"abort", (uintptr_t)&abort},
-                                               {"access", (uintptr_t)&access},
-                                               {"AConfiguration_delete", (uintptr_t)&import_placeholder},
-                                               {"AConfiguration_fromAssetManager", (uintptr_t)&import_placeholder},
-                                               {"AConfiguration_getCountry", (uintptr_t)&import_placeholder},
-                                               {"AConfiguration_getDensity", (uintptr_t)&import_placeholder},
-                                               {"AConfiguration_getLanguage", (uintptr_t)&import_placeholder},
-                                               {"AConfiguration_getOrientation", (uintptr_t)&import_placeholder},
-                                               {"AConfiguration_new", (uintptr_t)&import_placeholder},
-                                               {"acos", (uintptr_t)&acos},
-                                               {"acosf", (uintptr_t)&acosf},
-                                               {"AInputEvent_getType", (uintptr_t)&import_placeholder},
-                                               {"AInputQueue_attachLooper", (uintptr_t)&import_placeholder},
-                                               {"AInputQueue_detachLooper", (uintptr_t)&import_placeholder},
-                                               {"AInputQueue_finishEvent", (uintptr_t)&import_placeholder},
-                                               {"AInputQueue_getEvent", (uintptr_t)&import_placeholder},
-                                               {"AInputQueue_hasEvents", (uintptr_t)&import_placeholder},
-                                               {"AInputQueue_preDispatchEvent", (uintptr_t)&import_placeholder},
-                                               {"AKeyEvent_getAction", (uintptr_t)&import_placeholder},
-                                               {"AKeyEvent_getKeyCode", (uintptr_t)&import_placeholder},
-                                               {"ALooper_addFd", (uintptr_t)&import_placeholder},
-                                               {"ALooper_pollAll", (uintptr_t)&import_placeholder},
-                                               {"ALooper_prepare", (uintptr_t)&import_placeholder},
-                                               {"AMotionEvent_getAction", (uintptr_t)&import_placeholder},
-                                               {"AMotionEvent_getAxisValue", (uintptr_t)&import_placeholder},
-                                               {"AMotionEvent_getPointerCount", (uintptr_t)&import_placeholder},
-                                               {"AMotionEvent_getPointerId", (uintptr_t)&import_placeholder},
-                                               {"AMotionEvent_getX", (uintptr_t)&import_placeholder},
-                                               {"AMotionEvent_getY", (uintptr_t)&import_placeholder},
-                                               {"ANativeActivity_finish", (uintptr_t)&import_placeholder},
-                                               {"ANativeWindow_setBuffersGeometry", (uintptr_t)&import_placeholder},
-                                               {"ASensorEventQueue_disableSensor", (uintptr_t)&import_placeholder},
-                                               {"ASensorEventQueue_enableSensor", (uintptr_t)&import_placeholder},
-                                               {"ASensorEventQueue_getEvents", (uintptr_t)&import_placeholder},
-                                               {"ASensorEventQueue_setEventRate", (uintptr_t)&import_placeholder},
-                                               {"ASensorManager_createEventQueue", (uintptr_t)&import_placeholder},
-                                               {"ASensorManager_getDefaultSensor", (uintptr_t)&import_placeholder},
-                                               {"ASensorManager_getInstance", (uintptr_t)&import_placeholder},
-                                               {"asin", (uintptr_t)&asin},
-                                               {"asinf", (uintptr_t)&asinf},
-                                               {"atan", (uintptr_t)&atan},
-                                               {"atan2", (uintptr_t)&atan2},
-                                               {"atan2f", (uintptr_t)&atan2f},
-                                               {"atanf", (uintptr_t)&atanf},
-                                               {"atoi", (uintptr_t)&atoi},
-                                               {"atol", (uintptr_t)&atol},
-                                               {"calloc", (uintptr_t)&calloc},
-                                               {"ceil", (uintptr_t)&ceil},
-                                               {"ceilf", (uintptr_t)&ceilf},
-                                               {"chdir", (uintptr_t)&chdir},
-                                               {"clock", (uintptr_t)&clock},
-                                               {"close", (uintptr_t)&close},
-                                               {"closedir", (uintptr_t)&closedir},
-                                               {"cos", (uintptr_t)&cos},
-                                               {"cosf", (uintptr_t)&cosf},
-                                               {"cosh", (uintptr_t)&cosh},
-                                               {"difftime", (uintptr_t)&difftime},
-                                               {"dlclose", (uintptr_t)&dlclose},
-                                               {"dlopen", (uintptr_t)&dlopen},
-                                               {"dlsym", (uintptr_t)&dlsym},
-                                               {"eglChooseConfig", (uintptr_t)&import_placeholder},
-                                               {"eglCreateContext", (uintptr_t)&import_placeholder},
-                                               {"eglCreateWindowSurface", (uintptr_t)&import_placeholder},
-                                               {"eglDestroyContext", (uintptr_t)&import_placeholder},
-                                               {"eglDestroySurface", (uintptr_t)&import_placeholder},
-                                               {"eglGetConfigAttrib", (uintptr_t)&import_placeholder},
-                                               {"eglGetDisplay", (uintptr_t)&import_placeholder},
-                                               {"eglGetError", (uintptr_t)&import_placeholder},
-                                               {"eglGetProcAddress", (uintptr_t)&import_placeholder},
-                                               {"eglInitialize", (uintptr_t)&import_placeholder},
-                                               {"eglMakeCurrent", (uintptr_t)&import_placeholder},
-                                               {"eglQuerySurface", (uintptr_t)&import_placeholder},
-                                               {"eglSwapBuffers", (uintptr_t)&import_placeholder},
-                                               {"eglTerminate", (uintptr_t)&import_placeholder},
-                                               {"exit", (uintptr_t)&exit},
-                                               {"exp", (uintptr_t)&exp},
-                                               {"fclose", (uintptr_t)&fclose},
-                                               {"fcntl", (uintptr_t)&fcntl},
-                                               {"feof", (uintptr_t)&feof},
-                                               {"ferror", (uintptr_t)&ferror},
-                                               {"fflush", (uintptr_t)&fflush},
-                                               {"fgetpos", (uintptr_t)&fgetpos},
-                                               {"fgets", (uintptr_t)&fgets},
-                                               {"floor", (uintptr_t)&floor},
-                                               {"floorf", (uintptr_t)&floorf},
-                                               {"fmod", (uintptr_t)&fmod},
-                                               {"fmodf", (uintptr_t)&fmodf},
-                                               {"fopen", (uintptr_t)&fopen},
-                                               {"fprintf", (uintptr_t)&fprintf},
-                                               {"fputc", (uintptr_t)&fputc},
-                                               {"fputs", (uintptr_t)&fputs},
-                                               {"fread", (uintptr_t)&fread},
-                                               {"free", (uintptr_t)&free},
-                                               {"freopen", (uintptr_t)&freopen},
-                                               {"frexp", (uintptr_t)&frexp},
-                                               {"fscanf", (uintptr_t)&fscanf},
-                                               {"fseek", (uintptr_t)&fseek},
-                                               {"fsetpos", (uintptr_t)&fsetpos},
-                                               {"fstat", (uintptr_t)&fstat},
-                                               {"ftell", (uintptr_t)&ftell},
-                                               {"fwrite", (uintptr_t)&fwrite},
-                                               {"getc", (uintptr_t)&getc},
-                                               {"getcwd", (uintptr_t)&getcwd},
-                                               {"getenv", (uintptr_t)&getenv},
-                                               {"gettimeofday", (uintptr_t)&gettimeofday},
-                                               {"glAlphaFuncx", (uintptr_t)&import_placeholder},
-                                               {"glBindTexture", (uintptr_t)&import_placeholder},
-                                               {"glBlendFunc", (uintptr_t)&import_placeholder},
-                                               {"glClear", (uintptr_t)&import_placeholder},
-                                               {"glClearColorx", (uintptr_t)&import_placeholder},
-                                               {"glClearDepthx", (uintptr_t)&import_placeholder},
-                                               {"glClearStencil", (uintptr_t)&import_placeholder},
-                                               {"glColor4x", (uintptr_t)&import_placeholder},
-                                               {"glColorMask", (uintptr_t)&import_placeholder},
-                                               {"glColorPointer", (uintptr_t)&import_placeholder},
-                                               {"glCompressedTexImage2D", (uintptr_t)&import_placeholder},
-                                               {"glCompressedTexSubImage2D", (uintptr_t)&import_placeholder},
-                                               {"glCopyTexSubImage2D", (uintptr_t)&import_placeholder},
-                                               {"glCullFace", (uintptr_t)&import_placeholder},
-                                               {"glDeleteTextures", (uintptr_t)&import_placeholder},
-                                               {"glDepthFunc", (uintptr_t)&import_placeholder},
-                                               {"glDepthMask", (uintptr_t)&import_placeholder},
-                                               {"glDisable", (uintptr_t)&import_placeholder},
-                                               {"glDisableClientState", (uintptr_t)&import_placeholder},
-                                               {"glDrawArrays", (uintptr_t)&import_placeholder},
-                                               {"glDrawElements", (uintptr_t)&import_placeholder},
-                                               {"glEnable", (uintptr_t)&import_placeholder},
-                                               {"glEnableClientState", (uintptr_t)&import_placeholder},
-                                               {"glGenTextures", (uintptr_t)&import_placeholder},
-                                               {"glGetIntegerv", (uintptr_t)&import_placeholder},
-                                               {"glGetString", (uintptr_t)&import_placeholder},
-                                               {"glHint", (uintptr_t)&import_placeholder},
-                                               {"glLightModelxv", (uintptr_t)&import_placeholder},
-                                               {"glLightx", (uintptr_t)&import_placeholder},
-                                               {"glLightxv", (uintptr_t)&import_placeholder},
-                                               {"glLoadMatrixf", (uintptr_t)&import_placeholder},
-                                               {"glLoadMatrixx", (uintptr_t)&import_placeholder},
-                                               {"glMaterialx", (uintptr_t)&import_placeholder},
-                                               {"glMaterialxv", (uintptr_t)&import_placeholder},
-                                               {"glMatrixMode", (uintptr_t)&import_placeholder},
-                                               {"glNormalPointer", (uintptr_t)&import_placeholder},
-                                               {"glPixelStorei", (uintptr_t)&import_placeholder},
-                                               {"glPopMatrix", (uintptr_t)&import_placeholder},
-                                               {"glPushMatrix", (uintptr_t)&import_placeholder},
-                                               {"glReadPixels", (uintptr_t)&import_placeholder},
-                                               {"glScissor", (uintptr_t)&import_placeholder},
-                                               {"glShadeModel", (uintptr_t)&import_placeholder},
-                                               {"glTexCoordPointer", (uintptr_t)&import_placeholder},
-                                               {"glTexEnvx", (uintptr_t)&import_placeholder},
-                                               {"glTexEnvxv", (uintptr_t)&import_placeholder},
-                                               {"glTexImage2D", (uintptr_t)&import_placeholder},
-                                               {"glTexParameteri", (uintptr_t)&import_placeholder},
-                                               {"glTexSubImage2D", (uintptr_t)&import_placeholder},
-                                               {"glVertexPointer", (uintptr_t)&import_placeholder},
-                                               {"glViewport", (uintptr_t)&import_placeholder},
-                                               {"gmtime", (uintptr_t)&gmtime},
-                                               {"isalpha", (uintptr_t)&isalpha},
-                                               {"iscntrl", (uintptr_t)&iscntrl},
-                                               {"islower", (uintptr_t)&islower},
-                                               {"isprint", (uintptr_t)&isprint},
-                                               {"ispunct", (uintptr_t)&ispunct},
-                                               {"isspace", (uintptr_t)&isspace},
-                                               {"isupper", (uintptr_t)&isupper},
-                                               {"iswalpha", (uintptr_t)&iswalpha},
-                                               {"iswcntrl", (uintptr_t)&iswcntrl},
-                                               {"iswdigit", (uintptr_t)&iswdigit},
-                                               {"iswlower", (uintptr_t)&iswlower},
-                                               {"iswprint", (uintptr_t)&iswprint},
-                                               {"iswpunct", (uintptr_t)&iswpunct},
-                                               {"iswspace", (uintptr_t)&iswspace},
-                                               {"iswupper", (uintptr_t)&iswupper},
-                                               {"iswxdigit", (uintptr_t)&iswxdigit},
-                                               {"isxdigit", (uintptr_t)&isxdigit},
-                                               {"ldexp", (uintptr_t)&ldexp},
-                                               {"localtime", (uintptr_t)&localtime},
-                                               {"log", (uintptr_t)&log},
-                                               {"log10", (uintptr_t)&log10},
-                                               {"log10f", (uintptr_t)&log10f},
-                                               {"longjmp", (uintptr_t)&longjmp},
-                                               {"lrand48", (uintptr_t)&lrand48},
-                                               {"lseek", (uintptr_t)&lseek},
-                                               {"lstat", (uintptr_t)&lstat},
-                                               {"malloc", (uintptr_t)&malloc},
-                                               {"memchr", (uintptr_t)&memchr},
-                                               {"memcmp", (uintptr_t)&memcmp},
-                                               {"memcpy", (uintptr_t)&memcpy},
-                                               {"memmove", (uintptr_t)&memmove},
-                                               {"memset", (uintptr_t)&memset},
-                                               {"mkdir", (uintptr_t)&mkdir},
-                                               {"mktemp", (uintptr_t)&mktemp},
-                                               {"mktime", (uintptr_t)&mktime},
-                                               {"mmap", (uintptr_t)&mmap}, // TODO
-                                               {"modf", (uintptr_t)&modf},
-                                               {"munmap", (uintptr_t)&munmap}, // TODO
-                                               {"open", (uintptr_t)&open},
-                                               {"opendir", (uintptr_t)&opendir},
-                                               {"pipe", (uintptr_t)&pipe},
-                                               {"pow", (uintptr_t)&pow},
-                                               {"printf", (uintptr_t)&printf},
-                                               {"pthread_attr_init", (uintptr_t)&pthread_attr_init},
-                                               {"pthread_attr_setdetachstate", (uintptr_t)&pthread_attr_setdetachstate},
-                                               {"pthread_cond_broadcast", (uintptr_t)&pthread_cond_broadcast},
-                                               {"pthread_cond_destroy", (uintptr_t)&pthread_cond_destroy},
-                                               {"pthread_cond_init", (uintptr_t)&pthread_cond_init},
-                                               {"pthread_cond_wait", (uintptr_t)&pthread_cond_wait},
-                                               {"pthread_create", (uintptr_t)&pthread_create},
-                                               {"pthread_getspecific", (uintptr_t)&pthread_getspecific},
-                                               {"pthread_join", (uintptr_t)&pthread_join},
-                                               {"pthread_key_create", (uintptr_t)&pthread_key_create},
-                                               {"pthread_key_delete", (uintptr_t)&pthread_key_delete},
-                                               {"pthread_mutex_destroy", (uintptr_t)&pthread_mutex_destroy},
-                                               {"pthread_mutex_init", (uintptr_t)&pthread_mutex_init},
-                                               {"pthread_mutex_lock", (uintptr_t)&pthread_mutex_lock},
-                                               {"pthread_mutex_unlock", (uintptr_t)&pthread_mutex_unlock},
-                                               {"pthread_mutexattr_destroy", (uintptr_t)&pthread_mutexattr_destroy},
-                                               {"pthread_mutexattr_init", (uintptr_t)&pthread_mutexattr_init},
-                                               {"pthread_mutexattr_settype", (uintptr_t)&pthread_mutexattr_settype},
-                                               {"pthread_setschedparam", (uintptr_t)&pthread_setschedparam},
-                                               {"pthread_setspecific", (uintptr_t)&pthread_setspecific},
-                                               {"putc", (uintptr_t)&putc},
-                                               {"puts", (uintptr_t)&puts},
-                                               {"qsort", (uintptr_t)&qsort},
-                                               {"raise", (uintptr_t)&raise},
-                                               {"read", (uintptr_t)&read},
-                                               {"readdir", (uintptr_t)&readdir},
-                                               {"realloc", (uintptr_t)&realloc},
-                                               {"remove", (uintptr_t)&remove},
-                                               {"rename", (uintptr_t)&rename},
-                                               {"rint", (uintptr_t)&rint},
-                                               {"rmdir", (uintptr_t)&rmdir},
-                                               {"setjmp", (uintptr_t)&setjmp},
-                                               {"setlocale", (uintptr_t)&setlocale},
-                                               {"setvbuf", (uintptr_t)&setvbuf},
-                                               {"sin", (uintptr_t)&sin},
-                                               {"sinf", (uintptr_t)&sinf},
-                                               {"sinh", (uintptr_t)&sinh},
-                                               {"slCreateEngine", (uintptr_t)&import_placeholder}, // TODO
-                                               {"snprintf", (uintptr_t)&snprintf},
-                                               {"sprintf", (uintptr_t)&sprintf},
-                                               {"sqrt", (uintptr_t)&sqrt},
-                                               {"sqrtf", (uintptr_t)&sqrtf},
-                                               {"srand48", (uintptr_t)&srand48},
-                                               {"sscanf", (uintptr_t)&sscanf},
-                                               {"strcat", (uintptr_t)&strcat},
-                                               {"strchr", (uintptr_t)&strchr},
-                                               {"strcmp", (uintptr_t)&strcmp},
-                                               {"strcoll", (uintptr_t)&strcoll},
-                                               {"strcpy", (uintptr_t)&strcpy},
-                                               {"strerror", (uintptr_t)&strerror},
-                                               {"strftime", (uintptr_t)&strftime},
-                                               {"strlen", (uintptr_t)&strlen},
-                                               {"strncat", (uintptr_t)&strncat},
-                                               {"strncmp", (uintptr_t)&strncmp},
-                                               {"strncpy", (uintptr_t)&strncpy},
-                                               {"strpbrk", (uintptr_t)&strpbrk},
-                                               {"strrchr", (uintptr_t)&strrchr},
-                                               {"strspn", (uintptr_t)&strspn},
-                                               {"strstr", (uintptr_t)&strstr},
-                                               {"strtod", (uintptr_t)&strtod},
-                                               {"sysconf", (uintptr_t)&sysconf},
-                                               {"system", (uintptr_t)&system},
-                                               {"tan", (uintptr_t)&tan},
-                                               {"tanf", (uintptr_t)&tanf},
-                                               {"tanh", (uintptr_t)&tanh},
-                                               {"time", (uintptr_t)&time},
-                                               {"tmpfile", (uintptr_t)&tmpfile},
-                                               {"tmpnam", (uintptr_t)&tmpnam},
-                                               {"tolower", (uintptr_t)&tolower},
-                                               {"toupper", (uintptr_t)&toupper},
-                                               {"towlower", (uintptr_t)&towlower},
-                                               {"towupper", (uintptr_t)&towupper},
-                                               {"ungetc", (uintptr_t)&ungetc},
-                                               {"unlink", (uintptr_t)&unlink},
-                                               {"usleep", (uintptr_t)&usleep},
-                                               {"vprintf", (uintptr_t)&vprintf},
-                                               {"vsnprintf", (uintptr_t)&vsnprintf},
-                                               {"vsprintf", (uintptr_t)&vsprintf},
-                                               {"vsscanf", (uintptr_t)&vsscanf},
-                                               {"wcscmp", (uintptr_t)&wcscmp},
-                                               {"wcslen", (uintptr_t)&wcslen},
-                                               {"wcsncpy", (uintptr_t)&wcsncpy},
-                                               {"wmemcpy", (uintptr_t)&wmemcpy},
-                                               {"wmemmove", (uintptr_t)&wmemmove},
-                                               {"wmemset", (uintptr_t)&wmemset},
-                                               {"write", (uintptr_t)&write}};
+static so_default_dynlib dynlib_functions[] = {
+    {"__aeabi_atexit", (uintptr_t)&__aeabi_atexit},
+    {"__android_log_print", (uintptr_t)&__android_log_print},
+    {"__android_log_vprint", (uintptr_t)&__android_log_vprint},
+    {"__assert2", (uintptr_t)&import_placeholder},
+    {"__cxa_atexit", (uintptr_t)&__cxa_atexit},
+    {"__cxa_finalize", (uintptr_t)&__cxa_finalize},
+    {"__errno", (uintptr_t)&__errno},
+    {"__gnu_Unwind_Find_exidx", (uintptr_t)&import_placeholder}, // idk
+    {"__srget", (uintptr_t)&import_placeholder},
+    {"__stack_chk_fail", (uintptr_t)&import_placeholder},
+    {"abort", (uintptr_t)&abort},
+    {"access", (uintptr_t)&access},
+    {"AConfiguration_delete", (uintptr_t)&import_placeholder},
+    {"AConfiguration_fromAssetManager", (uintptr_t)&import_placeholder},
+    {"AConfiguration_getCountry", (uintptr_t)&import_placeholder},
+    {"AConfiguration_getDensity", (uintptr_t)&import_placeholder},
+    {"AConfiguration_getLanguage", (uintptr_t)&import_placeholder},
+    {"AConfiguration_getOrientation", (uintptr_t)&import_placeholder},
+    {"AConfiguration_new", (uintptr_t)&import_placeholder},
+    {"acos", (uintptr_t)&acos},
+    {"acosf", (uintptr_t)&acosf},
+    {"AInputEvent_getType", (uintptr_t)&import_placeholder},
+    {"AInputQueue_attachLooper", (uintptr_t)&import_placeholder},
+    {"AInputQueue_detachLooper", (uintptr_t)&import_placeholder},
+    {"AInputQueue_finishEvent", (uintptr_t)&import_placeholder},
+    {"AInputQueue_getEvent", (uintptr_t)&import_placeholder},
+    {"AInputQueue_hasEvents", (uintptr_t)&import_placeholder},
+    {"AInputQueue_preDispatchEvent", (uintptr_t)&import_placeholder},
+    {"AKeyEvent_getAction", (uintptr_t)&import_placeholder},
+    {"AKeyEvent_getKeyCode", (uintptr_t)&import_placeholder},
+    {"ALooper_addFd", (uintptr_t)&import_placeholder},
+    {"ALooper_pollAll", (uintptr_t)&import_placeholder},
+    {"ALooper_prepare", (uintptr_t)&import_placeholder},
+    {"AMotionEvent_getAction", (uintptr_t)&import_placeholder},
+    {"AMotionEvent_getAxisValue", (uintptr_t)&import_placeholder},
+    {"AMotionEvent_getPointerCount", (uintptr_t)&import_placeholder},
+    {"AMotionEvent_getPointerId", (uintptr_t)&import_placeholder},
+    {"AMotionEvent_getX", (uintptr_t)&import_placeholder},
+    {"AMotionEvent_getY", (uintptr_t)&import_placeholder},
+    {"ANativeActivity_finish", (uintptr_t)&import_placeholder},
+    {"ANativeWindow_setBuffersGeometry", (uintptr_t)&import_placeholder},
+    {"ASensorEventQueue_disableSensor", (uintptr_t)&import_placeholder},
+    {"ASensorEventQueue_enableSensor", (uintptr_t)&import_placeholder},
+    {"ASensorEventQueue_getEvents", (uintptr_t)&import_placeholder},
+    {"ASensorEventQueue_setEventRate", (uintptr_t)&import_placeholder},
+    {"ASensorManager_createEventQueue", (uintptr_t)&import_placeholder},
+    {"ASensorManager_getDefaultSensor", (uintptr_t)&import_placeholder},
+    {"ASensorManager_getInstance", (uintptr_t)&import_placeholder},
+    {"asin", (uintptr_t)&asin},
+    {"asinf", (uintptr_t)&asinf},
+    {"atan", (uintptr_t)&atan},
+    {"atan2", (uintptr_t)&atan2},
+    {"atan2f", (uintptr_t)&atan2f},
+    {"atanf", (uintptr_t)&atanf},
+    {"atoi", (uintptr_t)&atoi},
+    {"atol", (uintptr_t)&atol},
+    {"calloc", (uintptr_t)&calloc},
+    {"ceil", (uintptr_t)&ceil},
+    {"ceilf", (uintptr_t)&ceilf},
+    {"chdir", (uintptr_t)&chdir},
+    {"clock", (uintptr_t)&clock},
+    {"close", (uintptr_t)&close},
+    {"closedir", (uintptr_t)&closedir},
+    {"cos", (uintptr_t)&cos},
+    {"cosf", (uintptr_t)&cosf},
+    {"cosh", (uintptr_t)&cosh},
+    {"difftime", (uintptr_t)&difftime},
+    {"dlclose", (uintptr_t)&ret0},
+    {"dlopen", (uintptr_t)&dlopen_hook},
+    {"dlsym", (uintptr_t)&dlsym_hook},
+    {"eglChooseConfig", (uintptr_t)&import_placeholder},
+    {"eglCreateContext", (uintptr_t)&import_placeholder},
+    {"eglCreateWindowSurface", (uintptr_t)&import_placeholder},
+    {"eglDestroyContext", (uintptr_t)&import_placeholder},
+    {"eglDestroySurface", (uintptr_t)&import_placeholder},
+    {"eglGetConfigAttrib", (uintptr_t)&import_placeholder},
+    {"eglGetDisplay", (uintptr_t)&import_placeholder},
+    {"eglGetError", (uintptr_t)&import_placeholder},
+    {"eglGetProcAddress", (uintptr_t)&import_placeholder},
+    {"eglInitialize", (uintptr_t)&import_placeholder},
+    {"eglMakeCurrent", (uintptr_t)&import_placeholder},
+    {"eglQuerySurface", (uintptr_t)&import_placeholder},
+    {"eglSwapBuffers", (uintptr_t)&import_placeholder},
+    {"eglTerminate", (uintptr_t)&import_placeholder},
+    {"exit", (uintptr_t)&exit},
+    {"exp", (uintptr_t)&exp},
+    {"fclose", (uintptr_t)&fclose},
+    {"fcntl", (uintptr_t)&ret0},
+    {"feof", (uintptr_t)&feof},
+    {"ferror", (uintptr_t)&ferror},
+    {"fflush", (uintptr_t)&fflush},
+    {"fgetpos", (uintptr_t)&fgetpos},
+    {"fgets", (uintptr_t)&fgets},
+    {"floor", (uintptr_t)&floor},
+    {"floorf", (uintptr_t)&floorf},
+    {"fmod", (uintptr_t)&fmod},
+    {"fmodf", (uintptr_t)&fmodf},
+    {"fopen", (uintptr_t)&fopen_hook},
+    {"fprintf", (uintptr_t)&fprintf},
+    {"fputc", (uintptr_t)&fputc},
+    {"fputs", (uintptr_t)&fputs},
+    {"fread", (uintptr_t)&fread},
+    {"free", (uintptr_t)&vglFree},
+    {"freopen", (uintptr_t)&freopen}, // TODO
+    {"frexp", (uintptr_t)&frexp},
+    {"fscanf", (uintptr_t)&fscanf},
+    {"fseek", (uintptr_t)&fseek},
+    {"fsetpos", (uintptr_t)&fsetpos},
+    {"fstat", (uintptr_t)&fstat_hook},
+    {"ftell", (uintptr_t)&ftell},
+    {"fwrite", (uintptr_t)&fwrite},
+    {"getc", (uintptr_t)&getc},
+    {"getcwd", (uintptr_t)&ret0},
+    {"getenv", (uintptr_t)&ret0},
+    {"gettimeofday", (uintptr_t)&gettimeofday},
+    {"glAlphaFuncx", (uintptr_t)&import_placeholder},
+    {"glBindTexture", (uintptr_t)&import_placeholder},
+    {"glBlendFunc", (uintptr_t)&import_placeholder},
+    {"glClear", (uintptr_t)&import_placeholder},
+    {"glClearColorx", (uintptr_t)&import_placeholder},
+    {"glClearDepthx", (uintptr_t)&import_placeholder},
+    {"glClearStencil", (uintptr_t)&import_placeholder},
+    {"glColor4x", (uintptr_t)&import_placeholder},
+    {"glColorMask", (uintptr_t)&import_placeholder},
+    {"glColorPointer", (uintptr_t)&import_placeholder},
+    {"glCompressedTexImage2D", (uintptr_t)&import_placeholder},
+    {"glCompressedTexSubImage2D", (uintptr_t)&import_placeholder},
+    {"glCopyTexSubImage2D", (uintptr_t)&import_placeholder},
+    {"glCullFace", (uintptr_t)&import_placeholder},
+    {"glDeleteTextures", (uintptr_t)&import_placeholder},
+    {"glDepthFunc", (uintptr_t)&import_placeholder},
+    {"glDepthMask", (uintptr_t)&import_placeholder},
+    {"glDisable", (uintptr_t)&import_placeholder},
+    {"glDisableClientState", (uintptr_t)&import_placeholder},
+    {"glDrawArrays", (uintptr_t)&import_placeholder},
+    {"glDrawElements", (uintptr_t)&import_placeholder},
+    {"glEnable", (uintptr_t)&import_placeholder},
+    {"glEnableClientState", (uintptr_t)&import_placeholder},
+    {"glGenTextures", (uintptr_t)&import_placeholder},
+    {"glGetIntegerv", (uintptr_t)&import_placeholder},
+    {"glGetString", (uintptr_t)&import_placeholder},
+    {"glHint", (uintptr_t)&import_placeholder},
+    {"glLightModelxv", (uintptr_t)&import_placeholder},
+    {"glLightx", (uintptr_t)&import_placeholder},
+    {"glLightxv", (uintptr_t)&import_placeholder},
+    {"glLoadMatrixf", (uintptr_t)&import_placeholder},
+    {"glLoadMatrixx", (uintptr_t)&import_placeholder},
+    {"glMaterialx", (uintptr_t)&import_placeholder},
+    {"glMaterialxv", (uintptr_t)&import_placeholder},
+    {"glMatrixMode", (uintptr_t)&import_placeholder},
+    {"glNormalPointer", (uintptr_t)&import_placeholder},
+    {"glPixelStorei", (uintptr_t)&import_placeholder},
+    {"glPopMatrix", (uintptr_t)&import_placeholder},
+    {"glPushMatrix", (uintptr_t)&import_placeholder},
+    {"glReadPixels", (uintptr_t)&import_placeholder},
+    {"glScissor", (uintptr_t)&import_placeholder},
+    {"glShadeModel", (uintptr_t)&import_placeholder},
+    {"glTexCoordPointer", (uintptr_t)&import_placeholder},
+    {"glTexEnvx", (uintptr_t)&import_placeholder},
+    {"glTexEnvxv", (uintptr_t)&import_placeholder},
+    {"glTexImage2D", (uintptr_t)&import_placeholder},
+    {"glTexParameteri", (uintptr_t)&import_placeholder},
+    {"glTexSubImage2D", (uintptr_t)&import_placeholder},
+    {"glVertexPointer", (uintptr_t)&import_placeholder},
+    {"glViewport", (uintptr_t)&import_placeholder},
+    {"gmtime", (uintptr_t)&gmtime},
+    {"isalpha", (uintptr_t)&isalpha},
+    {"iscntrl", (uintptr_t)&iscntrl},
+    {"islower", (uintptr_t)&islower},
+    {"isprint", (uintptr_t)&isprint},
+    {"ispunct", (uintptr_t)&ispunct},
+    {"isspace", (uintptr_t)&isspace},
+    {"isupper", (uintptr_t)&isupper},
+    {"iswalpha", (uintptr_t)&iswalpha},
+    {"iswcntrl", (uintptr_t)&iswcntrl},
+    {"iswdigit", (uintptr_t)&iswdigit},
+    {"iswlower", (uintptr_t)&iswlower},
+    {"iswprint", (uintptr_t)&iswprint},
+    {"iswpunct", (uintptr_t)&iswpunct},
+    {"iswspace", (uintptr_t)&iswspace},
+    {"iswupper", (uintptr_t)&iswupper},
+    {"iswxdigit", (uintptr_t)&iswxdigit},
+    {"isxdigit", (uintptr_t)&isxdigit},
+    {"ldexp", (uintptr_t)&ldexp},
+    {"localtime", (uintptr_t)&localtime},
+    {"log", (uintptr_t)&log},
+    {"log10", (uintptr_t)&log10},
+    {"log10f", (uintptr_t)&log10f},
+    {"longjmp", (uintptr_t)&longjmp},
+    {"lrand48", (uintptr_t)&lrand48},
+    {"lseek", (uintptr_t)&lseek},
+    {"lstat", (uintptr_t)&lstat},
+    {"malloc", (uintptr_t)&vglMalloc},
+    {"memchr", (uintptr_t)&sceClibMemchr},
+    {"memcmp", (uintptr_t)&memcmp},
+    {"memcpy", (uintptr_t)&sceClibMemcpy},
+    {"memmove", (uintptr_t)&sceClibMemmove},
+    {"memset", (uintptr_t)&sceClibMemset},
+    {"mkdir", (uintptr_t)&mkdir}, // TODO
+    {"mktemp", (uintptr_t)&mktemp},
+    {"mktime", (uintptr_t)&mktime},
+    {"mmap", (uintptr_t)&mmap}, // implemented
+    {"modf", (uintptr_t)&modf},
+    {"munmap", (uintptr_t)&munmap}, // implemented
+    {"open", (uintptr_t)&open},
+    {"opendir", (uintptr_t)&opendir},
+    {"pipe", (uintptr_t)&pipe},
+    {"pow", (uintptr_t)&pow},
+    {"printf", (uintptr_t)&log_info},
+    {"pthread_attr_init", (uintptr_t)&pthread_attr_init_fake},
+    {"pthread_attr_setdetachstate", (uintptr_t)&pthread_attr_setdetachstate_fake},
+    {"pthread_cond_broadcast", (uintptr_t)&pthread_cond_broadcast_fake},
+    {"pthread_cond_destroy", (uintptr_t)&pthread_cond_destroy_fake},
+    {"pthread_cond_init", (uintptr_t)&pthread_cond_init_fake},
+    {"pthread_cond_wait", (uintptr_t)&pthread_cond_wait_fake},
+    {"pthread_create", (uintptr_t)&pthread_create_fake},
+    {"pthread_getspecific", (uintptr_t)&pthread_getspecific_fake},
+    {"pthread_join", (uintptr_t)&pthread_join_fake},
+    {"pthread_key_create", (uintptr_t)&pthread_key_create_fake},
+    {"pthread_key_delete", (uintptr_t)&pthread_key_delete_fake},
+    {"pthread_mutex_destroy", (uintptr_t)&pthread_mutex_destroy_fake},
+    {"pthread_mutex_init", (uintptr_t)&pthread_mutex_init_fake},
+    {"pthread_mutex_lock", (uintptr_t)&pthread_mutex_lock_fake},
+    {"pthread_mutex_unlock", (uintptr_t)&pthread_mutex_unlock_fake},
+    {"pthread_mutexattr_destroy", (uintptr_t)&pthread_mutexattr_destroy_fake},
+    {"pthread_mutexattr_init", (uintptr_t)&pthread_mutexattr_init_fake},
+    {"pthread_mutexattr_settype", (uintptr_t)&pthread_mutexattr_settype_fake},
+    {"pthread_setschedparam", (uintptr_t)&pthread_setschedparam_fake},
+    {"pthread_setspecific", (uintptr_t)&pthread_setspecific_fake},
+    {"putc", (uintptr_t)&putc},
+    {"puts", (uintptr_t)&puts},
+    {"qsort", (uintptr_t)&qsort},
+    {"raise", (uintptr_t)&raise},
+    {"read", (uintptr_t)&read},
+    {"readdir", (uintptr_t)&readdir},
+    {"realloc", (uintptr_t)&realloc},
+    {"remove", (uintptr_t)&remove},
+    {"rename", (uintptr_t)&rename},
+    {"rint", (uintptr_t)&rint},
+    {"rmdir", (uintptr_t)&rmdir},
+    {"setjmp", (uintptr_t)&setjmp},
+    {"setlocale", (uintptr_t)&setlocale},
+    {"setvbuf", (uintptr_t)&setvbuf},
+    {"sin", (uintptr_t)&sin},
+    {"sinf", (uintptr_t)&sinf},
+    {"sinh", (uintptr_t)&sinh},
+    {"slCreateEngine", (uintptr_t)&import_placeholder}, // TODO
+    {"snprintf", (uintptr_t)&snprintf},
+    {"sprintf", (uintptr_t)&sprintf},
+    {"sqrt", (uintptr_t)&sqrt},
+    {"sqrtf", (uintptr_t)&sqrtf},
+    {"srand48", (uintptr_t)&srand48},
+    {"sscanf", (uintptr_t)&sscanf},
+    {"strcat", (uintptr_t)&strcat},
+    {"strchr", (uintptr_t)&strchr},
+    {"strcmp", (uintptr_t)&strcmp},
+    {"strcoll", (uintptr_t)&strcoll},
+    {"strcpy", (uintptr_t)&strcpy},
+    {"strerror", (uintptr_t)&strerror},
+    {"strftime", (uintptr_t)&strftime},
+    {"strlen", (uintptr_t)&strlen},
+    {"strncat", (uintptr_t)&strncat},
+    {"strncmp", (uintptr_t)&strncmp},
+    {"strncpy", (uintptr_t)&strncpy},
+    {"strpbrk", (uintptr_t)&strpbrk},
+    {"strrchr", (uintptr_t)&strrchr},
+    {"strspn", (uintptr_t)&strspn},
+    {"strstr", (uintptr_t)&strstr},
+    {"strtod", (uintptr_t)&strtod},
+    {"sysconf", (uintptr_t)&sysconf},
+    {"system", (uintptr_t)&system},
+    {"tan", (uintptr_t)&tan},
+    {"tanf", (uintptr_t)&tanf},
+    {"tanh", (uintptr_t)&tanh},
+    {"time", (uintptr_t)&time},
+    {"tmpfile", (uintptr_t)&tmpfile},
+    {"tmpnam", (uintptr_t)&tmpnam},
+    {"tolower", (uintptr_t)&tolower},
+    {"toupper", (uintptr_t)&toupper},
+    {"towlower", (uintptr_t)&towlower},
+    {"towupper", (uintptr_t)&towupper},
+    {"ungetc", (uintptr_t)&ungetc},
+    {"unlink", (uintptr_t)&unlink},
+    {"usleep", (uintptr_t)&usleep},
+    {"vprintf", (uintptr_t)&vprintf},
+    {"vsnprintf", (uintptr_t)&vsnprintf},
+    {"vsprintf", (uintptr_t)&vsprintf},
+    {"vsscanf", (uintptr_t)&vsscanf},
+    {"wcscmp", (uintptr_t)&wcscmp},
+    {"wcslen", (uintptr_t)&wcslen},
+    {"wcsncpy", (uintptr_t)&wcsncpy},
+    {"wmemcpy", (uintptr_t)&wmemcpy},
+    {"wmemmove", (uintptr_t)&wmemmove},
+    {"wmemset", (uintptr_t)&wmemset},
+    {"write", (uintptr_t)&write}};
 
 static int check_kubridge()
 {
@@ -417,6 +755,8 @@ int main(int argc, char* argv[])
     psvDebugScreenInit();
     printf("======== syberia2v ========\n");
     printf("initializing...\n");
+
+    log_info("======== syberia2v ========\n");
 
     sceCtrlSetSamplingModeExt(SCE_CTRL_MODE_ANALOG_WIDE);
     sceTouchSetSamplingState(SCE_TOUCH_PORT_FRONT, SCE_TOUCH_SAMPLING_STATE_START);
@@ -438,13 +778,22 @@ int main(int argc, char* argv[])
     printf("resolving libsyberia2.so imports...\n");
     so_resolve(&syb2_mod, dynlib_functions, sizeof(dynlib_functions), 0);
 
-    printf("flushing and initializing jni env\n");
+    log_info("libsyberia2.so loaded and initialized.\n");
+
+    printf("flushing and initializing .so modules...\n");
     so_flush_caches(&syb2_mod);
     so_initialize(&syb2_mod);
 
-    jni_load();
+    // printf("hooking game...\n");
+    // patch_game();
 
-    printf("calling entry point...\n");
+    // printf("loading fake jni env...\n");
+    // jni_load();
+
+    // uintptr_t slCreateEngine_sub = so_symbol(&syb2_mod, "slCreateEngine");
+    // printf("slCreateEngine at %p\n", (void *)slCreateEngine_sub);
+
+    // printf("calling entry point...\n");
 
     // int (*hl2_LauncherMain)(void *unk1, void *unk2) = (void *)so_symbol(&hl2_mod, "LauncherMain");
     // printf("resolved LauncherMain at %p\n", hl2_LauncherMain);
