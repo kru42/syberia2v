@@ -6,8 +6,7 @@
         "vscode": {
             "extensions": [
                 "streetsidesoftware.code-spell-checker",
-                "ms-vscode.cpptools",
-                "ms-vscode.cpptools-themes",
+                "ms-vscode.cpptools-extension-pack",
                 "jeff-hykin.better-cpp-syntax",
                 "twxs.cmake",
                 "ms-vscode.cmake-tools",
@@ -21,6 +20,6 @@
         3000
     ],
     "mounts": [
-        "source=/home/tux/dc-share,target=/shared,type=bind,consistency=cached"
+        "source=/home/kru/workspace/devc_share,target=/shared,type=bind,consistency=cached"
     ]
 }
