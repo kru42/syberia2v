@@ -17,6 +17,7 @@
 #include "main.h"
 #include "so_util.h"
 #include "util.h"
+#include "log.h"
 
 enum MethodIDs
 {
@@ -55,6 +56,8 @@ char fake_env[0x1000];
 
 int GetMethodID(void* env, void* class, const char* name, const char* sig)
 {
+    log_info("GetMethodID: %s %s\n", name, sig);
+
     for (int i = 0; i < sizeof(name_to_method_ids) / sizeof(NameToMethodID); i++)
     {
         if (strcmp(name, name_to_method_ids[i].name) == 0)
@@ -65,22 +68,6 @@ int GetMethodID(void* env, void* class, const char* name, const char* sig)
 
     return UNKNOWN;
 }
-
-int CallBooleanMethodV(void* env, void* obj, int methodID, uintptr_t* args)
-{
-    return 0;
-}
-
-float CallFloatMethodV(void* env, void* obj, int methodID, uintptr_t* args)
-{
-    return 0.0f;
-}
-
-int CallIntMethodV(void* env, void* obj, int methodID, uintptr_t* args)
-{
-    return 0;
-}
-
 void* CallObjectMethodV(void* env, void* obj, int methodID, uintptr_t* args)
 {
     switch (methodID)
@@ -221,32 +208,26 @@ void* NewGlobalRef(void)
     return (void*)0x42424242;
 }
 
+void* FindClass(void* env, const char* name)
+{
+    log_info("FindClass: %s\n", name);
+    return (void*)0x42424242;
+}
+
 int GetEnv(void* vm, void** env, int r2)
 {
     memset(fake_env, 'A', sizeof(fake_env));
-    *(uintptr_t*)(fake_env + 0x00) = (uintptr_t)fake_env; // just point to itself...
-    *(uintptr_t*)(fake_env + 0x18) = (uintptr_t)ret0;     // FindClass
-    *(uintptr_t*)(fake_env + 0x54) = (uintptr_t)NewGlobalRef;
-    *(uintptr_t*)(fake_env + 0x58) = (uintptr_t)ret0; // DeleteGlobalRef
-    *(uintptr_t*)(fake_env + 0x5C) = (uintptr_t)ret0; // DeleteLocalRef
-    *(uintptr_t*)(fake_env + 0x84) = (uintptr_t)GetMethodID;
-    *(uintptr_t*)(fake_env + 0x8C) = (uintptr_t)CallObjectMethodV;
-    //*(uintptr_t*)(fake_env + 0x98)  = (uintptr_t)CallBooleanMethodV;
-    //*(uintptr_t*)(fake_env + 0xC8)  = (uintptr_t)CallIntMethodV;
-    //*(uintptr_t*)(fake_env + 0xE0)  = (uintptr_t)CallFloatMethodV;
-    *(uintptr_t*)(fake_env + 0xF8) = (uintptr_t)CallVoidMethodV;
-    //*(uintptr_t*)(fake_env + 0x178) = (uintptr_t)GetFieldID;
-    // *(uintptr_t*)(fake_env + 0x17C) = (uintptr_t)GetObjectField;
-    // *(uintptr_t*)(fake_env + 0x1C4) = (uintptr_t)GetStaticMethodID;
+    *(uintptr_t*)(fake_env + 0x00)  = (uintptr_t)fake_env;  // just point to itself...
+    *(uintptr_t*)(fake_env + 0x18)  = (uintptr_t)FindClass; // FindClass
+    *(uintptr_t*)(fake_env + 0x54)  = (uintptr_t)NewGlobalRef;
+    *(uintptr_t*)(fake_env + 0x58)  = (uintptr_t)ret0; // DeleteGlobalRef
+    *(uintptr_t*)(fake_env + 0x5C)  = (uintptr_t)ret0; // DeleteLocalRef
+    *(uintptr_t*)(fake_env + 0x84)  = (uintptr_t)GetMethodID;
+    *(uintptr_t*)(fake_env + 0x8C)  = (uintptr_t)CallObjectMethodV;
+    *(uintptr_t*)(fake_env + 0xF8)  = (uintptr_t)CallVoidMethodV;
     *(uintptr_t*)(fake_env + 0x1CC) = (uintptr_t)CallStaticObjectMethodV;
-    // *(uintptr_t*)(fake_env + 0x1D8) = (uintptr_t)CallStaticBooleanMethodV;
-    // *(uintptr_t*)(fake_env + 0x208) = (uintptr_t)CallStaticIntMethodV;
     *(uintptr_t*)(fake_env + 0x238) = (uintptr_t)CallStaticVoidMethodV;
     *(uintptr_t*)(fake_env + 0x29C) = (uintptr_t)NewStringUTF;
-    // *(uintptr_t*)(fake_env + 0x2A4) = (uintptr_t)GetStringUTFChars;
-    // *(uintptr_t*)(fake_env + 0x2AC) = (uintptr_t)GetArrayLength;
-    // *(uintptr_t*)(fake_env + 0x2B4) = (uintptr_t)GetObjectArrayElement;
-    // *(uintptr_t*)(fake_env + 0x2EC) = (uintptr_t)GetIntArrayElements;
     *(uintptr_t*)(fake_env + 0x30C) = (uintptr_t)ret0; // idk?
     *env                            = fake_env;
     return 0;
@@ -277,6 +258,6 @@ void jni_load(void)
     *(uintptr_t*)(fake_vm + 0x10) = (uintptr_t)AttachCurrentThread;
     *(uintptr_t*)(fake_vm + 0x18) = (uintptr_t)GetEnv;
 
-    int (*JNI_OnLoad)(void* vm, void* reserved) = (void*)so_symbol(&syb2_mod, "JNI_OnLoad");
-    JNI_OnLoad(fake_vm, NULL);
+    // int (*JNI_OnLoad)(void* vm, void* reserved) = (void*)so_symbol(&syb2_mod, "JNI_OnLoad");
+    // JNI_OnLoad(fake_vm, NULL);
 }

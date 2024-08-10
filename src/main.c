@@ -16,6 +16,7 @@
 #include <vitasdk.h>
 #include <vitaGL.h>
 #include <kubridge.h>
+#include <pthread.h>
 
 #include "main.h"
 #include "common/debugScreen.h"
@@ -103,6 +104,7 @@ void* dlsym_hook(void* handle, const char* symbol)
             return (void*)gl_hook[i].func;
         }
     }
+
     return vglGetProcAddress(symbol);
 }
 
@@ -157,6 +159,8 @@ int munmap(void* addr, size_t length)
 
 int pthread_mutex_init_fake(pthread_mutex_t** uid, const pthread_mutexattr_t* mutexattr)
 {
+    log_info("---> %s\n", __func__);
+
     pthread_mutex_t* m = vglCalloc(1, sizeof(pthread_mutex_t));
     if (!m)
         return -1;
@@ -321,6 +325,8 @@ int pthread_mutex_unlock_fake(pthread_mutex_t** uid)
     }
     if (ret < 0)
         return ret;
+    
+    log_info("unlocked.\n");
     return pthread_mutex_unlock(*uid);
 }
 
@@ -359,7 +365,6 @@ int pthread_cond_broadcast_fake(pthread_cond_t** cnd)
 int pthread_cond_signal_fake(pthread_cond_t** cnd)
 {
     log_info("---> %s\n", __func__);
-
     if (!*cnd)
     {
         if (pthread_cond_init_fake(cnd, NULL) < 0)
@@ -374,7 +379,7 @@ int pthread_cond_destroy_fake(pthread_cond_t** cnd)
     if (cnd && *cnd)
     {
         pthread_cond_destroy(*cnd);
-        vglFree(*cnd);
+        free(*cnd);
         *cnd = NULL;
     }
     return 0;
@@ -543,19 +548,19 @@ static so_default_dynlib dynlib_functions[] = {
     {"fmod", (uintptr_t)&fmod},
     {"fmodf", (uintptr_t)&fmodf},
     {"fopen", (uintptr_t)&fopen_hook},
-    {"fprintf", (uintptr_t)&fprintf},
-    {"fputc", (uintptr_t)&fputc},
-    {"fputs", (uintptr_t)&fputs},
-    {"fread", (uintptr_t)&fread},
+    {"fprintf", (uintptr_t)&import_placeholder}, // TODO
+    {"fputc", (uintptr_t)&import_placeholder},
+    {"fputs", (uintptr_t)&import_placeholder},
+    {"fread", (uintptr_t)&import_placeholder}, // TODO
     {"free", (uintptr_t)&vglFree},
-    {"freopen", (uintptr_t)&freopen}, // TODO
+    {"freopen", (uintptr_t)&import_placeholder}, // TODO
     {"frexp", (uintptr_t)&frexp},
     {"fscanf", (uintptr_t)&fscanf},
     {"fseek", (uintptr_t)&fseek},
     {"fsetpos", (uintptr_t)&fsetpos},
     {"fstat", (uintptr_t)&fstat_hook},
     {"ftell", (uintptr_t)&ftell},
-    {"fwrite", (uintptr_t)&fwrite},
+    {"fwrite", (uintptr_t)&import_placeholder}, // TODO
     {"getc", (uintptr_t)&getc},
     {"getcwd", (uintptr_t)&ret0},
     {"getenv", (uintptr_t)&ret0},
@@ -653,39 +658,59 @@ static so_default_dynlib dynlib_functions[] = {
     {"opendir", (uintptr_t)&opendir},
     {"pipe", (uintptr_t)&pipe},
     {"pow", (uintptr_t)&pow},
-    {"printf", (uintptr_t)&log_info},
-    {"pthread_attr_init", (uintptr_t)&pthread_attr_init_fake},
-    {"pthread_attr_setdetachstate", (uintptr_t)&pthread_attr_setdetachstate_fake},
-    {"pthread_cond_broadcast", (uintptr_t)&pthread_cond_broadcast_fake},
-    {"pthread_cond_destroy", (uintptr_t)&pthread_cond_destroy_fake},
-    {"pthread_cond_init", (uintptr_t)&pthread_cond_init_fake},
-    {"pthread_cond_wait", (uintptr_t)&pthread_cond_wait_fake},
-    {"pthread_create", (uintptr_t)&pthread_create_fake},
-    {"pthread_getspecific", (uintptr_t)&pthread_getspecific_fake},
-    {"pthread_join", (uintptr_t)&pthread_join_fake},
+    {"printf", (uintptr_t)&printf},
+    // {"pthread_attr_init", (uintptr_t)&pthread_attr_init_fake},
+    // {"pthread_attr_setdetachstate", (uintptr_t)&pthread_attr_setdetachstate_fake},
+    // {"pthread_cond_broadcast", (uintptr_t)&pthread_cond_broadcast_fake},
+    // {"pthread_cond_destroy", (uintptr_t)&pthread_cond_destroy_fake},
+    // {"pthread_cond_init", (uintptr_t)&pthread_cond_init_fake},
+    // {"pthread_cond_wait", (uintptr_t)&pthread_cond_wait_fake},
+    // {"pthread_create", (uintptr_t)&pthread_create_fake},
+    // {"pthread_getspecific", (uintptr_t)&pthread_getspecific_fake},
+    // {"pthread_join", (uintptr_t)&pthread_join_fake},
+    // {"pthread_key_create", (uintptr_t)&pthread_key_create_fake},
+    // {"pthread_key_delete", (uintptr_t)&pthread_key_delete_fake},
+    // {"pthread_mutex_destroy", (uintptr_t)&pthread_mutex_destroy_fake},
+    // {"pthread_mutex_init", (uintptr_t)&pthread_mutex_init_fake},
+    // {"pthread_mutex_lock", (uintptr_t)&pthread_mutex_lock_fake},
+    // {"pthread_mutex_unlock", (uintptr_t)&pthread_mutex_unlock_fake},
+    // {"pthread_mutexattr_destroy", (uintptr_t)&pthread_mutexattr_destroy_fake},
+    // {"pthread_mutexattr_init", (uintptr_t)&pthread_mutexattr_init_fake},
+    // {"pthread_mutexattr_settype", (uintptr_t)&pthread_mutexattr_settype_fake},
+    // {"pthread_setschedparam", (uintptr_t)&pthread_setschedparam_fake},
+    // {"pthread_setspecific", (uintptr_t)&pthread_setspecific_fake},
+    {"pthread_attr_init", (uintptr_t)&import_placeholder},
+    {"pthread_attr_setdetachstate", (uintptr_t)&import_placeholder},
+    {"pthread_cond_broadcast", (uintptr_t)&import_placeholder},
+    {"pthread_cond_destroy", (uintptr_t)&import_placeholder},
+    {"pthread_cond_init", (uintptr_t)&import_placeholder},
+    {"pthread_cond_wait", (uintptr_t)&import_placeholder},
+    {"pthread_create", (uintptr_t)&import_placeholder},
+    {"pthread_getspecific", (uintptr_t)&import_placeholder},
+    {"pthread_join", (uintptr_t)&import_placeholder},
     {"pthread_key_create", (uintptr_t)&pthread_key_create_fake},
-    {"pthread_key_delete", (uintptr_t)&pthread_key_delete_fake},
-    {"pthread_mutex_destroy", (uintptr_t)&pthread_mutex_destroy_fake},
+    {"pthread_key_delete", (uintptr_t)&import_placeholder},
+    {"pthread_mutex_destroy", (uintptr_t)&import_placeholder},
     {"pthread_mutex_init", (uintptr_t)&pthread_mutex_init_fake},
     {"pthread_mutex_lock", (uintptr_t)&pthread_mutex_lock_fake},
     {"pthread_mutex_unlock", (uintptr_t)&pthread_mutex_unlock_fake},
-    {"pthread_mutexattr_destroy", (uintptr_t)&pthread_mutexattr_destroy_fake},
-    {"pthread_mutexattr_init", (uintptr_t)&pthread_mutexattr_init_fake},
-    {"pthread_mutexattr_settype", (uintptr_t)&pthread_mutexattr_settype_fake},
-    {"pthread_setschedparam", (uintptr_t)&pthread_setschedparam_fake},
-    {"pthread_setspecific", (uintptr_t)&pthread_setspecific_fake},
+    {"pthread_mutexattr_destroy", (uintptr_t)&import_placeholder},
+    {"pthread_mutexattr_init", (uintptr_t)&import_placeholder},
+    {"pthread_mutexattr_settype", (uintptr_t)&import_placeholder},
+    {"pthread_setschedparam", (uintptr_t)&import_placeholder},
+    {"pthread_setspecific", (uintptr_t)&import_placeholder},
     {"putc", (uintptr_t)&putc},
     {"puts", (uintptr_t)&puts},
     {"qsort", (uintptr_t)&qsort},
     {"raise", (uintptr_t)&raise},
-    {"read", (uintptr_t)&read},
-    {"readdir", (uintptr_t)&readdir},
+    {"read", (uintptr_t)&import_placeholder},
+    {"readdir", (uintptr_t)&import_placeholder},
     {"realloc", (uintptr_t)&realloc},
     {"remove", (uintptr_t)&remove},
     {"rename", (uintptr_t)&rename},
     {"rint", (uintptr_t)&rint},
     {"rmdir", (uintptr_t)&rmdir},
-    {"setjmp", (uintptr_t)&setjmp},
+    {"setjmp", (uintptr_t)&import_placeholder},
     {"setlocale", (uintptr_t)&setlocale},
     {"setvbuf", (uintptr_t)&setvbuf},
     {"sin", (uintptr_t)&sin},
@@ -714,14 +739,14 @@ static so_default_dynlib dynlib_functions[] = {
     {"strspn", (uintptr_t)&strspn},
     {"strstr", (uintptr_t)&strstr},
     {"strtod", (uintptr_t)&strtod},
-    {"sysconf", (uintptr_t)&sysconf},
-    {"system", (uintptr_t)&system},
+    {"sysconf", (uintptr_t)&import_placeholder},
+    {"system", (uintptr_t)&import_placeholder},
     {"tan", (uintptr_t)&tan},
     {"tanf", (uintptr_t)&tanf},
     {"tanh", (uintptr_t)&tanh},
     {"time", (uintptr_t)&time},
-    {"tmpfile", (uintptr_t)&tmpfile},
-    {"tmpnam", (uintptr_t)&tmpnam},
+    {"tmpfile", (uintptr_t)&import_placeholder},
+    {"tmpnam", (uintptr_t)&import_placeholder},
     {"tolower", (uintptr_t)&tolower},
     {"toupper", (uintptr_t)&toupper},
     {"towlower", (uintptr_t)&towlower},
@@ -739,7 +764,7 @@ static so_default_dynlib dynlib_functions[] = {
     {"wmemcpy", (uintptr_t)&wmemcpy},
     {"wmemmove", (uintptr_t)&wmemmove},
     {"wmemset", (uintptr_t)&wmemset},
-    {"write", (uintptr_t)&write}};
+    {"write", (uintptr_t)&import_placeholder}};
 
 static int check_kubridge()
 {
@@ -783,6 +808,8 @@ int main(int argc, char* argv[])
     printf("flushing and initializing .so modules...\n");
     so_flush_caches(&syb2_mod);
     so_initialize(&syb2_mod);
+
+    // jni_load();
 
     // printf("hooking game...\n");
     // patch_game();

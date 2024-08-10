@@ -1,3 +1,6 @@
 [submodule "lib/kubridge"]
 	path = lib/kubridge
 	url = https://github.com/TheOfficialFloW/kubridge
+[submodule "lib/pthread-embedded"]
+	path = lib/pthread-embedded
+	url = https://github.com/vitasdk/pthread-embedded.git

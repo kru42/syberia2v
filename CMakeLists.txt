@@ -44,6 +44,7 @@ set(VITA_MKSFOEX_FLAGS "-d ATTRIBUTE2=12")
 # set(CMAKE_RULE_MESSAGES OFF)
 
 add_subdirectory("lib/kubridge/")
+add_subdirectory("lib/pthread-embedded/")
 
 # # Add any additional include paths here
 # include_directories(
