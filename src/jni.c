@@ -223,6 +223,9 @@ int GetEnv(void* vm, void** env, int r2)
     *(uintptr_t*)(fake_env + 0x58)  = (uintptr_t)ret0; // DeleteGlobalRef
     *(uintptr_t*)(fake_env + 0x5C)  = (uintptr_t)ret0; // DeleteLocalRef
     *(uintptr_t*)(fake_env + 0x84)  = (uintptr_t)GetMethodID;
+    //
+    // TODO: CallBooleanMethod, check others
+    //
     *(uintptr_t*)(fake_env + 0x8C)  = (uintptr_t)CallObjectMethodV;
     *(uintptr_t*)(fake_env + 0xF8)  = (uintptr_t)CallVoidMethodV;
     *(uintptr_t*)(fake_env + 0x1CC) = (uintptr_t)CallStaticObjectMethodV;

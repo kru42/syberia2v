@@ -1,5 +1,7 @@
 #include "log.h"
 #include <vitasdk.h>
+#include <wchar.h>
+#include <locale.h>
 
 static SceUID* log_handle = NULL;
 

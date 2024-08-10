@@ -14,6 +14,7 @@
 #include <string.h>
 
 #include "util.h"
+#include "log.h"
 
 //char fs_root[0x200] = "ux0:" "data/[...]";// DATA_PATH;
 
@@ -41,6 +42,7 @@ int debugPrintf(char* text, ...)
 
 int ret0(void)
 {
+    log_info("=====> ret0\n");
     return 0;
 }
 

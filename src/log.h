@@ -7,5 +7,6 @@
 #define LOG_FILE_PATH "ux0:data/syberia2v/syb2.log"
 
 void log_info(const char* format, ...);
+void log_winfo(const wchar_t* format, ...);
 
 #endif

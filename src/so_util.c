@@ -18,6 +18,7 @@
 #include "so_util.h"
 #include "util.h"
 #include "common/debugScreen.h"
+#include "log.h"
 
 #define printf psvDebugScreenPrintf
 
@@ -643,8 +644,11 @@ void so_initialize(so_module* mod)
 {
     for (int i = 0; i < mod->num_init_array; i++)
     {
+        log_info("executing init func no. %d\n", i);
         if (mod->init_array[i])
             mod->init_array[i]();
+        
+        log_info("done\n");
     }
 }
 

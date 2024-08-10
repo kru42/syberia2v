@@ -44,11 +44,15 @@ set(VITA_MKSFOEX_FLAGS "-d ATTRIBUTE2=12")
 # set(CMAKE_RULE_MESSAGES OFF)
 
 add_subdirectory("lib/kubridge/")
-add_subdirectory("lib/pthread-embedded/")
+# add_subdirectory("lib/pthread-embedded/")
 
 # # Add any additional include paths here
 # include_directories(
 #   ../common # This is for debugScreenPrintf(), you shouldn't need it in your projects
+# )
+
+# include_directories(
+#   lib/pthread-embedded
 # )
 
 # Add any additional library paths here
@@ -72,6 +76,7 @@ add_executable(${PROJECT_NAME}
 # Library to link to (drop the -l prefix). This will mostly be stubs.
 target_link_libraries(${PROJECT_NAME}
   -Wl,--whole-archive pthread -Wl,--no-whole-archive
+  pthread
   dl
   openal
   z
