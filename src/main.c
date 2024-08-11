@@ -35,16 +35,19 @@ int vgl_inited = 0;
 
 void* __wrap_memcpy(void* dest, const void* src, size_t n)
 {
+    //log_info("wrap memcpy called.\n");
     return sceClibMemcpy(dest, src, n);
 }
 
 void* __wrap_memmove(void* dest, const void* src, size_t n)
 {
+    //log_info("wrap memmove called.\n");
     return sceClibMemmove(dest, src, n);
 }
 
 void* __wrap_memset(void* s, int c, size_t n)
 {
+    //log_info("wrap memset called.\n");
     return sceClibMemset(s, c, n);
 }
 
@@ -159,19 +162,13 @@ int munmap(void* addr, size_t length)
     return 0;
 }
 
-int pthread_mutex_init_fake(pthread_mutex_t** uid, const pthread_mutexattr_t* mutexattr)
+int pthread_mutexattr_init_fake(pthread_mutexattr_t** uid)
 {
-    static int count = 0;
-    log_info("---> %s, %d\n", __func__, count++);
-
-    pthread_mutex_t* m = vglCalloc(1, sizeof(pthread_mutex_t));
+    pthread_mutexattr_t* m = calloc(1, sizeof(pthread_mutexattr_t));
     if (!m)
         return -1;
 
-    const int recursive = (mutexattr && *(const int*)mutexattr == 1);
-    *m                  = recursive ? PTHREAD_RECURSIVE_MUTEX_INITIALIZER : PTHREAD_MUTEX_INITIALIZER;
-
-    int ret = pthread_mutex_init(m, mutexattr);
+    int ret = pthread_mutexattr_init(m);
     if (ret < 0)
     {
         free(m);
@@ -183,100 +180,43 @@ int pthread_mutex_init_fake(pthread_mutex_t** uid, const pthread_mutexattr_t* mu
     return 0;
 }
 
-// int pthread_mutex_init_fake(SceKernelLwMutexWork** work)
-// {
-//     log_info("---> %s\n", __func__);
-
-//     *work = (SceKernelLwMutexWork*)vglMemalign(8, sizeof(SceKernelLwMutexWork));
-//     if (sceKernelCreateLwMutex(*work, "mutex", 0, 0, NULL) < 0)
-//     {
-//         return -1;
-//     }
-
-//     return 0;
-// }
-
-int pthread_attr_init_fake(pthread_attr_t** attr)
+int pthread_mutexattr_destroy_fake(pthread_mutexattr_t** m)
 {
-    log_info("---> %s\n", __func__);
-
-    *attr = vglCalloc(1, sizeof(pthread_attr_t));
+    if (m && *m)
+    {
+        pthread_mutexattr_destroy(*m);
+        free(*m);
+        *m = NULL;
+    }
     return 0;
 }
 
-int pthread_getspecific_fake(pthread_key_t key)
+int pthread_mutexattr_settype_fake(pthread_mutexattr_t** m, int type)
 {
-    log_info("---> %s\n", __func__);
-
-    return (int)pthread_getspecific(key);
+    pthread_mutexattr_settype(*m, type);
+    return 0;
 }
 
-int pthread_setspecific_fake(pthread_key_t key, const void* value)
+int pthread_mutex_init_fake(pthread_mutex_t** uid, const pthread_mutexattr_t** mutexattr)
 {
-    log_info("---> %s\n", __func__);
+    pthread_mutex_t* m = vglCalloc(1, sizeof(pthread_mutex_t));
+    if (!m)
+        return -1;
 
-    return pthread_setspecific(key, value);
-}
-
-int pthread_join_fake(pthread_t thread, void** value_ptr)
-{
-    log_info("---> %s\n", __func__);
-
-    return pthread_join(thread, value_ptr);
-}
-
-int pthread_key_create_fake(pthread_key_t* key, void (*destructor)(void*))
-{
-    log_info("---> %s\n", __func__);
-
-    return pthread_key_create(key, destructor);
-}
-
-int pthread_key_delete_fake(pthread_key_t key)
-{
-    log_info("---> %s\n", __func__);
-
-    return pthread_key_delete(key);
-}
-
-int pthread_mutexattr_init_fake(pthread_mutexattr_t* attr)
-{
-    log_info("---> %s\n", __func__);
-    return pthread_mutexattr_init(attr);
-}
-
-int pthread_mutexattr_destroy_fake(pthread_mutexattr_t* attr)
-{
-    log_info("---> %s\n", __func__);
-    return pthread_mutexattr_destroy(attr);
-}
-
-int pthread_mutexattr_settype_fake(pthread_mutexattr_t* attr, int type)
-{
-    log_info("---> %s\n", __func__);
-    return pthread_mutexattr_settype(attr, type);
-}
-
-int pthread_setschedparam_fake(pthread_t thread, int policy, const struct sched_param* param)
-{
-    log_info("---> %s\n", __func__);
-    return pthread_setschedparam(thread, policy, param);
-}
-
-int pthread_attr_setdetachstate_fake(pthread_attr_t** attr, int detachstate)
-{
-    log_info("---> %s\n", __func__);
-    if (!*attr)
+    int ret = pthread_mutex_init(m, mutexattr ? *mutexattr : NULL);
+    if (ret < 0)
     {
-        if (pthread_attr_init_fake(attr) < 0)
-            return -1;
+        free(m);
+        return -1;
     }
-    return pthread_attr_setdetachstate(*attr, detachstate);
+
+    *uid = m;
+
+    return 0;
 }
 
 int pthread_mutex_destroy_fake(pthread_mutex_t** uid)
 {
-    log_info("---> %s\n", __func__);
     if (uid && *uid && (uintptr_t)*uid > 0x8000)
     {
         pthread_mutex_destroy(*uid);
@@ -286,116 +226,64 @@ int pthread_mutex_destroy_fake(pthread_mutex_t** uid)
     return 0;
 }
 
-// int pthread_mutex_destroy_fake(SceKernelLwMutexWork** work)
-// {
-//     log_info("---> %s\n", __func__);
-//     if (sceKernelDeleteLwMutex(*work) < 0)
-//     {
-//         return -1;
-//     }
-
-//     vglFree(*work);
-//     return 0;
-// }
-
-// int pthread_mutex_lock_fake(SceKernelLwMutexWork** work)
-// {
-//     log_info("---> %s\n", __func__);
-//     if (!*work)
-//     {
-//         log_info("mutex not initialized. initializing...\n");
-//         pthread_mutex_init_fake(work);
-//     }
-//     if (sceKernelLockLwMutex(*work, 1, NULL) < 0)
-//     {
-//         log_info("mutex lock failed.\n");
-//         return -1;
-//     }
-//     return 0;
-// }
-
-// int pthread_mutex_unlock_fake(SceKernelLwMutexWork** work)
-// {
-//     log_info("---> %s\n", __func__);
-//     if (sceKernelUnlockLwMutex(*work, 1) < 0)
-//         return -1;
-//     return 0;
-// }
-
 int pthread_mutex_lock_fake(pthread_mutex_t** uid)
 {
-    log_info("---> %s\n", __func__);
     int ret = 0;
     if (!*uid)
     {
-        log_info("mutex not initialized. initializing...\n");
         ret = pthread_mutex_init_fake(uid, NULL);
-        log_info("mutex initialized");
     }
     else if ((uintptr_t)*uid == 0x4000)
     {
-        log_info("recursive mutex\n");
         pthread_mutexattr_t attr;
-        pthread_mutexattr_init(&attr);
-        pthread_mutexattr_settype(&attr, PTHREAD_MUTEX_RECURSIVE);
+        pthread_mutexattr_init_fake(&attr);
+        pthread_mutexattr_settype_fake(&attr, PTHREAD_MUTEX_RECURSIVE);
         ret = pthread_mutex_init_fake(uid, &attr);
-        pthread_mutexattr_destroy(&attr);
+        pthread_mutexattr_destroy_fake(&attr);
     }
     else if ((uintptr_t)*uid == 0x8000)
     {
-        log_info("errorcheck mutex\n");
         pthread_mutexattr_t attr;
-        pthread_mutexattr_init(&attr);
-        pthread_mutexattr_settype(&attr, PTHREAD_MUTEX_ERRORCHECK);
+        pthread_mutexattr_init_fake(&attr);
+        pthread_mutexattr_settype_fake(&attr, PTHREAD_MUTEX_ERRORCHECK);
         ret = pthread_mutex_init_fake(uid, &attr);
-        pthread_mutexattr_destroy(&attr);
+        pthread_mutexattr_destroy_fake(&attr);
     }
     if (ret < 0)
-    {
-        log_info("!!!!!!!!!!!!!! mutex init failed.\n");
         return ret;
-    }
-
     return pthread_mutex_lock(*uid);
 }
 
 int pthread_mutex_unlock_fake(pthread_mutex_t** uid)
 {
-    log_info("---> %s | uid: 0x%04x addr: %08x\n", __func__, *uid, uid);
     int ret = 0;
     if (!*uid)
     {
-        log_info("mutex not initialized. initializing...\n");
         ret = pthread_mutex_init_fake(uid, NULL);
     }
     else if ((uintptr_t)*uid == 0x4000)
     {
-        log_info("recursive mutex\n");
         pthread_mutexattr_t attr;
-        pthread_mutexattr_init(&attr);
-        pthread_mutexattr_settype(&attr, PTHREAD_MUTEX_RECURSIVE);
+        pthread_mutexattr_init_fake(&attr);
+        pthread_mutexattr_settype_fake(&attr, PTHREAD_MUTEX_RECURSIVE);
         ret = pthread_mutex_init_fake(uid, &attr);
-        pthread_mutexattr_destroy(&attr);
+        pthread_mutexattr_destroy_fake(&attr);
     }
     else if ((uintptr_t)*uid == 0x8000)
     {
-        log_info("errorcheck mutex\n");
         pthread_mutexattr_t attr;
-        pthread_mutexattr_init(&attr);
-        pthread_mutexattr_settype(&attr, PTHREAD_MUTEX_ERRORCHECK);
+        pthread_mutexattr_init_fake(&attr);
+        pthread_mutexattr_settype_fake(&attr, PTHREAD_MUTEX_ERRORCHECK);
         ret = pthread_mutex_init_fake(uid, &attr);
-        pthread_mutexattr_destroy(&attr);
+        pthread_mutexattr_destroy_fake(&attr);
     }
     if (ret < 0)
         return ret;
-
-    log_info("unlocking mutex %08x\n", *uid);
     return pthread_mutex_unlock(*uid);
 }
 
 int pthread_cond_init_fake(pthread_cond_t** cnd, const int* condattr)
 {
-    log_info("---> %s\n", __func__);
     pthread_cond_t* c = vglCalloc(1, sizeof(pthread_cond_t));
     if (!c)
         return -1;
@@ -416,7 +304,6 @@ int pthread_cond_init_fake(pthread_cond_t** cnd, const int* condattr)
 
 int pthread_cond_broadcast_fake(pthread_cond_t** cnd)
 {
-    log_info("---> %s\n", __func__);
     if (!*cnd)
     {
         if (pthread_cond_init_fake(cnd, NULL) < 0)
@@ -427,7 +314,6 @@ int pthread_cond_broadcast_fake(pthread_cond_t** cnd)
 
 int pthread_cond_signal_fake(pthread_cond_t** cnd)
 {
-    log_info("---> %s\n", __func__);
     if (!*cnd)
     {
         if (pthread_cond_init_fake(cnd, NULL) < 0)
@@ -438,11 +324,10 @@ int pthread_cond_signal_fake(pthread_cond_t** cnd)
 
 int pthread_cond_destroy_fake(pthread_cond_t** cnd)
 {
-    log_info("---> %s\n", __func__);
     if (cnd && *cnd)
     {
         pthread_cond_destroy(*cnd);
-        free(*cnd);
+        vglFree(*cnd);
         *cnd = NULL;
     }
     return 0;
@@ -450,7 +335,8 @@ int pthread_cond_destroy_fake(pthread_cond_t** cnd)
 
 int pthread_cond_wait_fake(pthread_cond_t** cnd, pthread_mutex_t** mtx)
 {
-    log_info("---> %s\n", __func__);
+    log_info("pthread_cond_wait called.\n");
+
     if (!*cnd)
     {
         if (pthread_cond_init_fake(cnd, NULL) < 0)
@@ -461,7 +347,6 @@ int pthread_cond_wait_fake(pthread_cond_t** cnd, pthread_mutex_t** mtx)
 
 int pthread_cond_timedwait_fake(pthread_cond_t** cnd, pthread_mutex_t** mtx, const struct timespec* t)
 {
-    log_info("---> %s\n", __func__);
     if (!*cnd)
     {
         if (pthread_cond_init_fake(cnd, NULL) < 0)
@@ -472,18 +357,114 @@ int pthread_cond_timedwait_fake(pthread_cond_t** cnd, pthread_mutex_t** mtx, con
 
 int pthread_create_fake(pthread_t* thread, const void* unused, void* entry, void* arg)
 {
-    log_info("---> %s\n", __func__);
     return pthread_create(thread, NULL, entry, arg);
+}
+
+int pthread_mutex_trylock_fake(pthread_mutex_t** uid)
+{
+    int ret = 0;
+    if (!*uid)
+    {
+        ret = pthread_mutex_init_fake(uid, NULL);
+    }
+    else if ((uintptr_t)*uid == 0x4000)
+    {
+        pthread_mutexattr_t attr;
+        pthread_mutexattr_init(&attr);
+        pthread_mutexattr_settype(&attr, PTHREAD_MUTEX_RECURSIVE);
+        ret = pthread_mutex_init_fake(uid, &attr);
+        pthread_mutexattr_destroy(&attr);
+    }
+    else if ((uintptr_t)*uid == 0x8000)
+    {
+        pthread_mutexattr_t attr;
+        pthread_mutexattr_init(&attr);
+        pthread_mutexattr_settype(&attr, PTHREAD_MUTEX_ERRORCHECK);
+        ret = pthread_mutex_init_fake(uid, &attr);
+        pthread_mutexattr_destroy(&attr);
+    }
+    if (ret < 0)
+        return ret;
+    return pthread_mutex_trylock(*uid);
 }
 
 int pthread_once_fake(volatile int* once_control, void (*init_routine)(void))
 {
-    log_info("---> %s\n", __func__);
     if (!once_control || !init_routine)
         return -1;
     if (__sync_lock_test_and_set(once_control, 1) == 0)
         (*init_routine)();
     return 0;
+}
+
+typedef struct
+{
+    pthread_mutex_t keyLock;
+    void (*destructor)(void*);
+} pthread_key_t_struct;
+
+int pthread_key_create_fake(pthread_key_t* key, void (*destructor)(void*))
+{
+    log_info("pthread_key_create called.\n");
+
+    int                   result = 0;
+    pthread_key_t_struct* newkey;
+
+    newkey = (pthread_key_t_struct*)vglCalloc(1, sizeof(*newkey));
+    if (newkey == NULL)
+    {
+        result = ENOMEM;
+    }
+    else
+    {
+        // Simulate successful allocation by not performing any real action
+        newkey->keyLock    = PTHREAD_MUTEX_INITIALIZER;
+        newkey->destructor = destructor;
+
+        // Normally, you would handle errors here, but we'll just simulate success.
+    }
+
+    *key = (pthread_key_t)newkey;
+
+    log_info("pthread_key_create finished.\n");
+
+    return result;
+}
+
+// int pthread_key_create_fake(pthread_key_t* key, void (*destructor)(void*))
+// {
+//     log_info("pthread_key_create_fake called.\n");
+
+//     if (!*key)
+//     {
+//         key = vglCalloc(1, sizeof(pthread_key_t));
+//     }
+
+//     int res = pthread_key_create(key, destructor);
+//     log_info("pthread_key_create: %d\n", res);
+
+//     return res;
+// }
+
+int pthread_key_delete_fake(pthread_key_t* key)
+{
+    if (key)
+    {
+        pthread_key_delete(*key);
+        vglFree(key);
+    }
+
+    return 0;
+}
+
+int pthread_attr_init_fake(pthread_attr_t** attr)
+{
+    if (!*attr)
+    {
+        *attr = vglCalloc(1, sizeof(pthread_attr_t));
+    }
+
+    return pthread_attr_init(*attr);
 }
 
 FILE* fopen_hook(const char* filename, const char* mode)
@@ -534,8 +515,6 @@ wchar_t* wmemcpy_p(wchar_t* dest, const wchar_t* src, size_t n)
 
 wchar_t* wmemmove_p(wchar_t* dest, const wchar_t* src, size_t n)
 {
-    log_info("[][][] call me 3 times uwu pls\n");
-
     if (dest < src)
     {
         // Non-overlapping or src is before dest
@@ -571,6 +550,7 @@ size_t wcslen_p(const wchar_t* s)
     {
         length++;
     }
+
     return length;
 }
 
@@ -668,7 +648,7 @@ static so_default_dynlib dynlib_functions[] = {{"__aeabi_atexit", (uintptr_t)&__
                                                {"chdir", (uintptr_t)&import_placeholder},
                                                {"clock", (uintptr_t)&import_placeholder},
                                                {"close", (uintptr_t)&import_placeholder},
-                                               {"closedir", (uintptr_t)&closedir},
+                                               {"closedir", (uintptr_t)&import_placeholder},
                                                {"cos", (uintptr_t)&cos},
                                                {"cosf", (uintptr_t)&cosf},
                                                {"cosh", (uintptr_t)&cosh},
@@ -825,8 +805,8 @@ static so_default_dynlib dynlib_functions[] = {{"__aeabi_atexit", (uintptr_t)&__
                                                {"pthread_getspecific", (uintptr_t)&import_placeholder},
                                                {"pthread_join", (uintptr_t)&import_placeholder},
                                                {"pthread_key_create", (uintptr_t)&pthread_key_create_fake},
-                                               {"pthread_key_delete", (uintptr_t)&import_placeholder},
-                                               {"pthread_mutex_destroy", (uintptr_t)&import_placeholder},
+                                               {"pthread_key_delete", (uintptr_t)&pthread_key_delete_fake},
+                                               {"pthread_mutex_destroy", (uintptr_t)&pthread_mutex_destroy_fake},
                                                {"pthread_mutex_init", (uintptr_t)&pthread_mutex_init_fake},
                                                {"pthread_mutex_lock", (uintptr_t)&pthread_mutex_lock_fake},
                                                {"pthread_mutex_unlock", (uintptr_t)&pthread_mutex_unlock_fake},
