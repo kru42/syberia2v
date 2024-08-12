@@ -54,22 +54,10 @@ static NameToMethodID name_to_method_ids[] = {
 char fake_vm[0x1000];
 char fake_env[0x1000];
 
-int GetMethodID(void* env, void* class, const char* name, const char* sig)
+void* CallObjectMethod(void* env, void* obj, int methodID, uintptr_t* args)
 {
-    log_info("GetMethodID: %s %s\n", name, sig);
+    log_info("CallObjectMethod called");
 
-    for (int i = 0; i < sizeof(name_to_method_ids) / sizeof(NameToMethodID); i++)
-    {
-        if (strcmp(name, name_to_method_ids[i].name) == 0)
-        {
-            return name_to_method_ids[i].id;
-        }
-    }
-
-    return UNKNOWN;
-}
-void* CallObjectMethodV(void* env, void* obj, int methodID, uintptr_t* args)
-{
     switch (methodID)
     {
     case GET_LOCAL_PATH:
@@ -80,66 +68,26 @@ void* CallObjectMethodV(void* env, void* obj, int methodID, uintptr_t* args)
     return NULL;
 }
 
-void CallVoidMethodV(void* env, void* obj, int methodID, uintptr_t* args)
+void CallVoidMethod(void* env, void* obj, int methodID, uintptr_t* args)
 {
+    log_info("CallVoidMethod called");
+
     return;
 }
 
-int GetFieldID(void* env, void* clazz, const char* name, const char* sig)
+void* CallStaticObjectMethod(void* env, void* obj, int methodID, uintptr_t* args)
 {
-    return 0;
-}
+    log_info("CallStaticObjectMethod called");
 
-int GetObjectField(void* env, void* obj, int fieldID)
-{
-    return 0;
-}
-
-int GetStaticMethodID(void* env, void* class, const char* name, const char* sig)
-{
-    for (int i = 0; i < sizeof(name_to_method_ids) / sizeof(NameToMethodID); i++)
-    {
-        if (strcmp(name, name_to_method_ids[i].name) == 0)
-            return name_to_method_ids[i].id;
-    }
-
-    return UNKNOWN;
-}
-
-char* getLocale(void)
-{
-    int lang = -1;
-    sceAppUtilSystemParamGetInt(SCE_SYSTEM_PARAM_ID_LANG, &lang);
-    switch (lang)
-    {
-    case SCE_SYSTEM_PARAM_LANG_FRENCH:
-        return "fr";
-    case SCE_SYSTEM_PARAM_LANG_SPANISH:
-        return "es";
-    case SCE_SYSTEM_PARAM_LANG_GERMAN:
-        return "de";
-    case SCE_SYSTEM_PARAM_LANG_ITALIAN:
-        return "it";
-    case SCE_SYSTEM_PARAM_LANG_PORTUGUESE_PT:
-    case SCE_SYSTEM_PARAM_LANG_PORTUGUESE_BR:
-        return "pt";
-    case SCE_SYSTEM_PARAM_LANG_RUSSIAN:
-        return "ru";
-    default:
-        return "en";
-    }
-}
-
-void* CallStaticObjectMethodV(void* env, void* obj, int methodID, uintptr_t* args)
-{
     switch (methodID)
     {
     case GET_FILES_DIR:
         return DATA_PATH;
     case GET_PACKAGE_PATH:
-        return DATA_PATH "/main.obb";
+        return DATA_PATH "/main.3.ru.buka.syberia2.obb";
     case GET_LOCALE:
-        return getLocale();
+        // return getLocale();
+        return "eu";
     case GET_LANGUAGE_CODE:
         return "en";
     case GET_REGION_CODE:
@@ -153,8 +101,10 @@ void* CallStaticObjectMethodV(void* env, void* obj, int methodID, uintptr_t* arg
     }
 }
 
-int CallStaticBooleanMethodV(void* env, void* obj, int methodID, uintptr_t* args)
+int CallStaticBooleanMethod(void* env, void* obj, int methodID, uintptr_t* args)
 {
+    log_info("CallStaticBooleanMethod called");
+
     switch (methodID)
     {
     case HAS_VIBRATOR:
@@ -164,103 +114,80 @@ int CallStaticBooleanMethodV(void* env, void* obj, int methodID, uintptr_t* args
     }
 }
 
-int CallStaticIntMethodV(void* env, void* obj, int methodID, uintptr_t* args)
+void CallStaticVoidMethod(void* env, void* obj, int methodID, uintptr_t* args)
 {
-    switch (methodID)
+    log_info("CallStaticVoidMethod called");
+    return;
+}
+
+int NewObject(void* env, void* obj, int methodID, uintptr_t* args)
+{
+    log_info("NewObject called", methodID);
+    return -1;
+}
+
+void CallBooleanMethod(void* env, void* obj, int methodID, uintptr_t* args)
+{
+    log_info("CallBooleanMethod called");
+
+    return;
+}
+
+int FindClass(void* env, const char* name)
+{
+    log_info("FindClass called. name=%s\n", name);
+
+    return 0;
+}
+
+int GetMethodID(void* env, void* obj, const char* name, const char* sig)
+{
+    log_info("GetMethodID called. name=%s, sig=%s\n", name, sig);
+
+    for (int i = 0; i < sizeof(name_to_method_ids) / sizeof(NameToMethodID); i++)
     {
-    default:
-        return 0;
+        if (strcmp(name, name_to_method_ids[i].name) == 0)
+        {
+            return name_to_method_ids[i].id;
+        }
     }
-}
 
-void CallStaticVoidMethodV(void* env, void* obj, int methodID, uintptr_t* args)
-{
-}
-
-char* NewStringUTF(void* env, char* bytes)
-{
-    return bytes;
-}
-
-char* GetStringUTFChars(void* env, char* string, int* isCopy)
-{
-    return string;
-}
-
-int GetArrayLength(void* env, void* array)
-{
-    return 1;
-}
-
-void* GetObjectArrayElement(void* env, void* array, int index)
-{
-    return array;
-}
-
-int   dummy_array[2];
-void* GetIntArrayElements(void* env, void* array, int* isCopy)
-{
-    return &dummy_array;
-}
-
-void* NewGlobalRef(void)
-{
-    return (void*)0x42424242;
-}
-
-void* FindClass(void* env, const char* name)
-{
-    log_info("FindClass: %s\n", name);
-    return (void*)0x42424242;
+    log_info("GetMethodID: unknown method %s\n", name);
+    return UNKNOWN;
 }
 
 int GetEnv(void* vm, void** env, int r2)
 {
+    log_info("GetEnv called\n");
+
     memset(fake_env, 'A', sizeof(fake_env));
-    *(uintptr_t*)(fake_env + 0x00)  = (uintptr_t)fake_env;  // just point to itself...
-    *(uintptr_t*)(fake_env + 0x18)  = (uintptr_t)FindClass; // FindClass
-    *(uintptr_t*)(fake_env + 0x54)  = (uintptr_t)NewGlobalRef;
-    *(uintptr_t*)(fake_env + 0x58)  = (uintptr_t)ret0; // DeleteGlobalRef
-    *(uintptr_t*)(fake_env + 0x5C)  = (uintptr_t)ret0; // DeleteLocalRef
+    *(uintptr_t*)(fake_env + 0x00)  = (uintptr_t)fake_env;
+    *(uintptr_t*)(fake_env + 0x18)  = (uintptr_t)FindClass;
+    *(uintptr_t*)(fake_env + 0x74)  = (uintptr_t)NewObject;
     *(uintptr_t*)(fake_env + 0x84)  = (uintptr_t)GetMethodID;
-    //
-    // TODO: CallBooleanMethod, check others
-    //
-    *(uintptr_t*)(fake_env + 0x8C)  = (uintptr_t)CallObjectMethodV;
-    *(uintptr_t*)(fake_env + 0xF8)  = (uintptr_t)CallVoidMethodV;
-    *(uintptr_t*)(fake_env + 0x1CC) = (uintptr_t)CallStaticObjectMethodV;
-    *(uintptr_t*)(fake_env + 0x238) = (uintptr_t)CallStaticVoidMethodV;
-    *(uintptr_t*)(fake_env + 0x29C) = (uintptr_t)NewStringUTF;
-    *(uintptr_t*)(fake_env + 0x30C) = (uintptr_t)ret0; // idk?
+    *(uintptr_t*)(fake_env + 0x8C)  = (uintptr_t)CallObjectMethod;
+    *(uintptr_t*)(fake_env + 0x98)  = (uintptr_t)CallBooleanMethod;
+    *(uintptr_t*)(fake_env + 0xF8)  = (uintptr_t)CallVoidMethod;
+    *(uintptr_t*)(fake_env + 0x1CC) = (uintptr_t)CallStaticObjectMethod;
+    *(uintptr_t*)(fake_env + 0x1D8) = (uintptr_t)CallStaticBooleanMethod;
+    *(uintptr_t*)(fake_env + 0x238) = (uintptr_t)CallStaticVoidMethod;
     *env                            = fake_env;
+
     return 0;
-}
-
-int AttachCurrentThread(void* vm, void** p_env, void* thr_args)
-{
-    GetEnv(vm, p_env, 0);
-    return 0;
-}
-
-void DetachCurrentThread(void* vm)
-{
-    // TODO: check this
-    void (*detach_sub)(void) = *(void (**)(void))(vm + 0x14);
-    if (detach_sub)
-    {
-        detach_sub();
-    }
-
-    return;
 }
 
 void jni_load(void)
 {
     memset(fake_vm, 'A', sizeof(fake_vm));
     *(uintptr_t*)(fake_vm + 0x00) = (uintptr_t)fake_vm; // just point to itself...
-    *(uintptr_t*)(fake_vm + 0x10) = (uintptr_t)AttachCurrentThread;
+    *(uintptr_t*)(fake_vm + 0x10) = (uintptr_t)GetEnv;
+    *(uintptr_t*)(fake_vm + 0x14) = (uintptr_t)ret0;
     *(uintptr_t*)(fake_vm + 0x18) = (uintptr_t)GetEnv;
 
-    // int (*JNI_OnLoad)(void* vm, void* reserved) = (void*)so_symbol(&syb2_mod, "JNI_OnLoad");
-    // JNI_OnLoad(fake_vm, NULL);
+    log_info("calling JNI_OnLoad\n");
+
+    int (*JNI_OnLoad)(void* vm, void* reserved) = (void*)so_symbol(&syb2_mod, "JNI_OnLoad");
+    JNI_OnLoad(fake_vm, NULL);
+
+    log_info("JNI_OnLoad called\n");
 }

@@ -1,6 +1,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <stdio.h>
+#include <stdint.h>
 #include <unistd.h>
 #include <errno.h>
 #include <fcntl.h>
@@ -13,10 +14,10 @@
 #include <dlfcn.h>
 #include <dirent.h>
 #include <math.h>
+#include <pthread.h>
 #include <vitasdk.h>
 #include <vitaGL.h>
 #include <kubridge.h>
-#include <pthread.h>
 
 #include "main.h"
 #include "common/debugScreen.h"
@@ -53,7 +54,8 @@ void* __wrap_memset(void* s, int c, size_t n)
 
 void import_placeholder()
 {
-    log_info("import placeholder called.\n");
+    log_info("import placeholder called from syberia2v.%08x.\n", (uintptr_t)__builtin_return_address(0) - LOAD_ADDRESS);
+
     fatal_error("import placeholder called.\n");
 }
 
@@ -485,11 +487,8 @@ FILE* fopen_hook(const char* filename, const char* mode)
     // }
 }
 
-static int malloc_count = 0;
-void*      malloc_fake(size_t size)
+void* malloc_fake(size_t size)
 {
-    log_info("malloc called: %d\tn. %d\n", size, malloc_count++);
-
     void* result = vglMalloc(size);
     return result;
 }
@@ -585,6 +584,12 @@ int wcscmp_p(const wchar_t* s1, const wchar_t* s2)
 void* sceClibMemclr(void* dst, SceSize len)
 {
     return sceClibMemset(dst, 0, len);
+}
+
+void exit_hook(int status)
+{
+    log_info("exit called.\n");
+    fatal_error("exit was called. ec: %d\n", status);
 }
 
 extern void* __aeabi_atexit;
@@ -694,21 +699,21 @@ static so_default_dynlib dynlib_functions[] = {{"__aeabi_memclr", (uintptr_t)&sc
                                                {"eglQuerySurface", (uintptr_t)&import_placeholder},
                                                {"eglSwapBuffers", (uintptr_t)&eglSwapBuffers},
                                                {"eglTerminate", (uintptr_t)&import_placeholder},
-                                               {"exit", (uintptr_t)&exit},
+                                               {"exit", (uintptr_t)&exit_hook},
                                                {"exp", (uintptr_t)&exp},
-                                               {"fclose", (uintptr_t)&import_placeholder}, // TODO
+                                               {"fclose", (uintptr_t)&ret0}, // TODO
                                                {"fcntl", (uintptr_t)&import_placeholder},
                                                {"fdopen", (uintptr_t)&import_placeholder},
-                                               {"feof", (uintptr_t)&import_placeholder},
-                                               {"ferror", (uintptr_t)&ferror},
-                                               {"fflush", (uintptr_t)&fflush},
+                                               {"feof", (uintptr_t)&ret0},
+                                               {"ferror", (uintptr_t)&ret0},
+                                               {"fflush", (uintptr_t)&ret0},
                                                {"fgets", (uintptr_t)&import_placeholder},
                                                {"floor", (uintptr_t)&floor},
                                                {"floorf", (uintptr_t)&floorf},
                                                {"fmod", (uintptr_t)&fmod},
                                                {"fmodf", (uintptr_t)&fmodf},
                                                {"fopen", (uintptr_t)&fopen_hook},
-                                               {"fprintf", (uintptr_t)&import_placeholder}, // TODO
+                                               {"fprintf", (uintptr_t)&ret0}, // TODO
                                                {"fputc", (uintptr_t)&import_placeholder},
                                                {"fputs", (uintptr_t)&import_placeholder},
                                                {"fread", (uintptr_t)&import_placeholder}, // TODO
@@ -938,6 +943,34 @@ static int check_kubridge()
     return _vshKernelSearchModuleByName("kubridge", search_unk) >= 0;
 }
 
+typedef struct game_activity_callbacks
+{
+    void* onStart;                    // 0x00
+    void* onResume;                   // 0x04
+    void* onSaveInstanceState;        // 0x08
+    void* onPause;                    // 0x0C
+    void* onStop;                     // 0x10
+    void* onDestroy;                  // 0x14
+    void* onWindowFocusChanged;       // 0x18
+    void* onNativeWindowCreated;      // 0x1C
+    void* onNativeWindowResized;      // 0x20
+    void* onNativeWindowRedrawNeeded; // 0x24
+    void* onNativeWindowDestroyed;    // 0x28
+    void* onInputQueueCreated;        // 0x2C
+    void* onInputQueueDestroyed;      // 0x30
+    void* onContentRectChanged;       // 0x34
+    void* onConfigurationChanged;     // 0x38
+    void* onLowMemory;                // 0x3C
+} game_activity_callbacks_t;
+
+typedef struct game_activity
+{
+    game_activity_callbacks_t* callbacks_ptr; // 0x00
+    uint8_t                    padding[0x18];
+    void*                      instance; // 0x1C
+    // [...]
+} game_activity_t; // 148 bytes? inited at 0
+
 extern void* __cxa_guard_acquire;
 extern void* __cxa_guard_release;
 
@@ -969,32 +1002,26 @@ int main(int argc, char* argv[])
     printf("resolving libsyberia2.so imports...\n");
     so_resolve(&syb2_mod, dynlib_functions, sizeof(dynlib_functions), 0);
 
-    log_info("libsyberia2.so loaded and initialized.\n");
-
-    // hook_addr(so_symbol(&syb2_mod, "_ZN7TeMutex4lockEv"), (uintptr_t)&import_placeholder);
-    // log_info("hooked TeMutex::lock\n");
-
     printf("flushing and initializing .so modules...\n");
     so_flush_caches(&syb2_mod);
     so_initialize(&syb2_mod);
 
-    // jni_load();
+    log_info("libsyberia2.so loaded and initialized.\n");
 
     // printf("hooking game...\n");
     // patch_game();
 
-    // printf("loading fake jni env...\n");
-    // jni_load();
+    printf("loading fake jni env...\n");
+    jni_load();
 
-    // uintptr_t slCreateEngine_sub = so_symbol(&syb2_mod, "slCreateEngine");
-    // printf("slCreateEngine at %p\n", (void *)slCreateEngine_sub);
+    game_activity_t activity = {0};
 
-    // printf("calling entry point...\n");
+    int (*ANativeActivity_onCreate)(game_activity_t*, void*, size_t) =
+        (void*)so_symbol(&syb2_mod, "ANativeActivity_onCreate");
 
-    // int (*hl2_LauncherMain)(void *unk1, void *unk2) = (void *)so_symbol(&hl2_mod, "LauncherMain");
-    // printf("resolved LauncherMain at %p\n", hl2_LauncherMain);
-
-    // hl2_LauncherMain(NULL, NULL);
+    log_info("calling ANativeActivity_onCreate at %p...\n", ANativeActivity_onCreate);
+    printf("calling ANativeActivity_onCreate...\n");
+    ANativeActivity_onCreate(&activity, NULL, 0);
 
     printf("all done!! waiting 10 secs before exiting...\n");
 

@@ -644,11 +644,8 @@ void so_initialize(so_module* mod)
 {
     for (int i = 0; i < mod->num_init_array; i++)
     {
-        log_info("executing init func no. %d\taddr: %08x\n", i, mod->init_array[i]);
         if (mod->init_array[i])
             mod->init_array[i]();
-        
-        log_info("done\n");
     }
 }
 
