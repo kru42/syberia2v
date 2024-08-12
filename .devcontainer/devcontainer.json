@@ -20,6 +20,6 @@
         3000
     ],
     "mounts": [
-        "source=/home/tux/dc-share,target=/shared,type=bind,consistency=cached"
+        "source=C:/Users/kru/Workspace/devc_shared,target=/shared,type=bind,consistency=cached"
     ]
 }

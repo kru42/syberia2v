@@ -35,19 +35,19 @@ int vgl_inited = 0;
 
 void* __wrap_memcpy(void* dest, const void* src, size_t n)
 {
-    //log_info("wrap memcpy called.\n");
+    // log_info("wrap memcpy called.\n");
     return sceClibMemcpy(dest, src, n);
 }
 
 void* __wrap_memmove(void* dest, const void* src, size_t n)
 {
-    //log_info("wrap memmove called.\n");
+    // log_info("wrap memmove called.\n");
     return sceClibMemmove(dest, src, n);
 }
 
 void* __wrap_memset(void* s, int c, size_t n)
 {
-    //log_info("wrap memset called.\n");
+    // log_info("wrap memset called.\n");
     return sceClibMemset(s, c, n);
 }
 
@@ -583,10 +583,21 @@ extern void* __aeabi_atexit;
 extern void* __cxa_atexit;
 extern void* __cxa_finalize;
 // extern void* __gnu_Unwind_Find_exidx; // idk
-extern void* __srget; // idk
 extern void* __stack_chk_fail;
 
 static so_default_dynlib dynlib_functions[] = {{"__aeabi_atexit", (uintptr_t)&__aeabi_atexit},
+                                               {"__aeabi_memclr", (uintptr_t)&import_placeholder},
+                                               {"__aeabi_memclr4", (uintptr_t)&import_placeholder},
+                                               {"__aeabi_memclr8", (uintptr_t)&import_placeholder},
+                                               {"__aeabi_memcpy", (uintptr_t)&import_placeholder},
+                                               {"__aeabi_memcpy4", (uintptr_t)&import_placeholder},
+                                               {"__aeabi_memcpy8", (uintptr_t)&import_placeholder},
+                                               {"__aeabi_memmove", (uintptr_t)&import_placeholder},
+                                               {"__aeabi_memmove4", (uintptr_t)&import_placeholder},
+                                               {"__aeabi_memmove8", (uintptr_t)&import_placeholder},
+                                               {"__aeabi_memset", (uintptr_t)&import_placeholder},
+                                               {"__aeabi_memset4", (uintptr_t)&import_placeholder},
+                                               {"__aeabi_memset8", (uintptr_t)&import_placeholder},
                                                {"__android_log_print", (uintptr_t)&__android_log_print},
                                                {"__android_log_vprint", (uintptr_t)&__android_log_vprint},
                                                {"__assert2", (uintptr_t)&__assert2}, // idk
@@ -594,9 +605,10 @@ static so_default_dynlib dynlib_functions[] = {{"__aeabi_atexit", (uintptr_t)&__
                                                {"__cxa_finalize", (uintptr_t)&__cxa_finalize},
                                                {"__errno", (uintptr_t)&__errno},
                                                {"__gnu_Unwind_Find_exidx", (uintptr_t)&import_placeholder}, // idk
-                                               {"__srget", (uintptr_t)&__srget},
+                                               {"__sF", (uintptr_t)&import_placeholder},
                                                {"__stack_chk_fail", (uintptr_t)&import_placeholder},
                                                {"abort", (uintptr_t)&abort},
+                                               {"accept", (uintptr_t)&import_placeholder},
                                                {"access", (uintptr_t)&import_placeholder},
                                                {"AConfiguration_delete", (uintptr_t)&import_placeholder},
                                                {"AConfiguration_fromAssetManager", (uintptr_t)&import_placeholder},
@@ -634,6 +646,8 @@ static so_default_dynlib dynlib_functions[] = {{"__aeabi_atexit", (uintptr_t)&__
                                                {"ASensorManager_createEventQueue", (uintptr_t)&import_placeholder},
                                                {"ASensorManager_getDefaultSensor", (uintptr_t)&import_placeholder},
                                                {"ASensorManager_getInstance", (uintptr_t)&import_placeholder},
+                                               {"acos", (uintptr_t)&acos},
+                                               {"acosf", (uintptr_t)&acosf},
                                                {"asin", (uintptr_t)&asin},
                                                {"asinf", (uintptr_t)&asinf},
                                                {"atan", (uintptr_t)&atan},
@@ -642,20 +656,21 @@ static so_default_dynlib dynlib_functions[] = {{"__aeabi_atexit", (uintptr_t)&__
                                                {"atanf", (uintptr_t)&atanf},
                                                {"atoi", (uintptr_t)&atoi},
                                                {"atol", (uintptr_t)&atol},
+                                               {"bind", (uintptr_t)&import_placeholder},
+                                               {"btowc", (uintptr_t)&btowc},
                                                {"calloc", (uintptr_t)&vglCalloc},
                                                {"ceil", (uintptr_t)&ceil},
                                                {"ceilf", (uintptr_t)&ceilf},
                                                {"chdir", (uintptr_t)&import_placeholder},
+                                               {"clearerr", (uintptr_t)&clearerr},
                                                {"clock", (uintptr_t)&import_placeholder},
                                                {"close", (uintptr_t)&import_placeholder},
                                                {"closedir", (uintptr_t)&import_placeholder},
+                                               {"connect", (uintptr_t)&import_placeholder},
                                                {"cos", (uintptr_t)&cos},
-                                               {"cosf", (uintptr_t)&cosf},
                                                {"cosh", (uintptr_t)&cosh},
                                                {"difftime", (uintptr_t)&import_placeholder},
-                                               {"dlclose", (uintptr_t)&import_placeholder},
-                                               {"dlopen", (uintptr_t)&dlopen_hook},
-                                               {"dlsym", (uintptr_t)&dlsym_hook},
+                                               {"dladdr", (uintptr_t)&import_placeholder},
                                                {"eglChooseConfig", (uintptr_t)&import_placeholder},
                                                {"eglCreateContext", (uintptr_t)&import_placeholder},
                                                {"eglCreateWindowSurface", (uintptr_t)&import_placeholder},
@@ -674,10 +689,10 @@ static so_default_dynlib dynlib_functions[] = {{"__aeabi_atexit", (uintptr_t)&__
                                                {"exp", (uintptr_t)&exp},
                                                {"fclose", (uintptr_t)&import_placeholder}, // TODO
                                                {"fcntl", (uintptr_t)&import_placeholder},
-                                               {"feof", (uintptr_t)&feof},
+                                               {"fdopen", (uintptr_t)&import_placeholder},
+                                               {"feof", (uintptr_t)&import_placeholder},
                                                {"ferror", (uintptr_t)&ferror},
                                                {"fflush", (uintptr_t)&fflush},
-                                               {"fgetpos", (uintptr_t)&import_placeholder},
                                                {"fgets", (uintptr_t)&import_placeholder},
                                                {"floor", (uintptr_t)&floor},
                                                {"floorf", (uintptr_t)&floorf},
@@ -693,13 +708,13 @@ static so_default_dynlib dynlib_functions[] = {{"__aeabi_atexit", (uintptr_t)&__
                                                {"frexp", (uintptr_t)&import_placeholder},
                                                {"fscanf", (uintptr_t)&import_placeholder},
                                                {"fseek", (uintptr_t)&import_placeholder},
-                                               {"fsetpos", (uintptr_t)&import_placeholder},
-                                               {"fstat", (uintptr_t)&fstat_hook},
                                                {"ftell", (uintptr_t)&import_placeholder},
                                                {"fwrite", (uintptr_t)&import_placeholder}, // TODO
                                                {"getc", (uintptr_t)&import_placeholder},
                                                {"getcwd", (uintptr_t)&import_placeholder},
                                                {"getenv", (uintptr_t)&import_placeholder},
+                                               {"gethostbyname", (uintptr_t)&import_placeholder},
+                                               {"gethostname", (uintptr_t)&import_placeholder},
                                                {"gettimeofday", (uintptr_t)&gettimeofday},
                                                {"glAlphaFuncx", (uintptr_t)&import_placeholder},
                                                {"glBindTexture", (uintptr_t)&import_placeholder},
@@ -752,10 +767,13 @@ static so_default_dynlib dynlib_functions[] = {{"__aeabi_atexit", (uintptr_t)&__
                                                {"glVertexPointer", (uintptr_t)&import_placeholder},
                                                {"glViewport", (uintptr_t)&import_placeholder},
                                                {"gmtime", (uintptr_t)&import_placeholder}, // todo
+                                               {"inet_ntoa", (uintptr_t)&import_placeholder},
+                                               {"isalnum", (uintptr_t)&isalnum},
                                                {"isalpha", (uintptr_t)&isalpha},
                                                {"iscntrl", (uintptr_t)&iscntrl},
+                                               {"isblank", (uintptr_t)&isblank},
+                                               {"isgraph", (uintptr_t)&isgraph},
                                                {"islower", (uintptr_t)&islower},
-                                               {"isprint", (uintptr_t)&isprint},
                                                {"ispunct", (uintptr_t)&ispunct},
                                                {"isspace", (uintptr_t)&isspace},
                                                {"isupper", (uintptr_t)&isupper},
@@ -770,38 +788,41 @@ static so_default_dynlib dynlib_functions[] = {{"__aeabi_atexit", (uintptr_t)&__
                                                {"iswxdigit", (uintptr_t)&iswxdigit},
                                                {"isxdigit", (uintptr_t)&isxdigit},
                                                {"ldexp", (uintptr_t)&ldexp},
+                                               {"listen", (uintptr_t)&import_placeholder},    // TODO
                                                {"localtime", (uintptr_t)&import_placeholder}, // TODO
                                                {"log", (uintptr_t)&log},
                                                {"log10", (uintptr_t)&log10},
                                                {"log10f", (uintptr_t)&log10f},
                                                {"longjmp", (uintptr_t)&import_placeholder}, // todo
                                                {"lrand48", (uintptr_t)&lrand48},
-                                               {"lseek", (uintptr_t)&import_placeholder}, // todo
                                                {"lstat", (uintptr_t)&import_placeholder}, // todo
                                                {"malloc", (uintptr_t)&malloc_fake},
+                                               {"mbrlen", (uintptr_t)&mbrlen},        // TODO: check this
+                                               {"memalign", (uintptr_t)&vglMemalign}, // TODO: check this
                                                {"memchr", (uintptr_t)&sceClibMemchr},
                                                {"memcmp", (uintptr_t)&sceClibMemcmp},
                                                {"memcpy", (uintptr_t)&sceClibMemcpy},
-                                               {"memmove", (uintptr_t)&sceClibMemmove},
                                                {"memset", (uintptr_t)&sceClibMemset},
                                                {"mkdir", (uintptr_t)&import_placeholder},  // TODO
                                                {"mktemp", (uintptr_t)&import_placeholder}, //
                                                {"mktime", (uintptr_t)&import_placeholder}, //
-                                               {"mmap", (uintptr_t)&mmap},                 // implemented
                                                {"modf", (uintptr_t)&modf},
-                                               {"munmap", (uintptr_t)&munmap},              // implemented
-                                               {"open", (uintptr_t)&import_placeholder},    // TODO
-                                               {"opendir", (uintptr_t)&import_placeholder}, // TODO
-                                               {"pipe", (uintptr_t)&import_placeholder},    // todo
+                                               {"nanosleep", (uintptr_t)&import_placeholder}, // TODO
+                                               {"open", (uintptr_t)&import_placeholder},      // TODO
+                                               {"opendir", (uintptr_t)&import_placeholder},   // TODO
+                                               {"pipe", (uintptr_t)&import_placeholder},      // todo
                                                {"pow", (uintptr_t)&pow},
-                                               {"printf", (uintptr_t)&import_placeholder}, // TODO: log this stuff
                                                {"pthread_attr_init", (uintptr_t)&pthread_attr_init_fake},
                                                {"pthread_attr_setdetachstate", (uintptr_t)&import_placeholder},
                                                {"pthread_cond_broadcast", (uintptr_t)&import_placeholder},
                                                {"pthread_cond_destroy", (uintptr_t)&import_placeholder},
                                                {"pthread_cond_init", (uintptr_t)&import_placeholder},
+                                               {"pthread_cond_signal", (uintptr_t)&import_placeholder},
+                                               {"pthread_cond_timedwait", (uintptr_t)&import_placeholder},
                                                {"pthread_cond_wait", (uintptr_t)&import_placeholder},
                                                {"pthread_create", (uintptr_t)&import_placeholder},
+                                               {"pthread_detach", (uintptr_t)&import_placeholder},
+                                               {"pthread_equal", (uintptr_t)&import_placeholder},
                                                {"pthread_getspecific", (uintptr_t)&import_placeholder},
                                                {"pthread_join", (uintptr_t)&import_placeholder},
                                                {"pthread_key_create", (uintptr_t)&pthread_key_create_fake},
@@ -809,10 +830,13 @@ static so_default_dynlib dynlib_functions[] = {{"__aeabi_atexit", (uintptr_t)&__
                                                {"pthread_mutex_destroy", (uintptr_t)&pthread_mutex_destroy_fake},
                                                {"pthread_mutex_init", (uintptr_t)&pthread_mutex_init_fake},
                                                {"pthread_mutex_lock", (uintptr_t)&pthread_mutex_lock_fake},
+                                               {"pthread_mutex_trylock", (uintptr_t)&import_placeholder},
                                                {"pthread_mutex_unlock", (uintptr_t)&pthread_mutex_unlock_fake},
                                                {"pthread_mutexattr_destroy", (uintptr_t)&import_placeholder},
                                                {"pthread_mutexattr_init", (uintptr_t)&import_placeholder},
                                                {"pthread_mutexattr_settype", (uintptr_t)&import_placeholder},
+                                               {"pthread_once", (uintptr_t)&import_placeholder},
+                                               {"pthread_self", (uintptr_t)&import_placeholder},
                                                {"pthread_setschedparam", (uintptr_t)&import_placeholder},
                                                {"pthread_setspecific", (uintptr_t)&import_placeholder},
                                                {"putc", (uintptr_t)&putc},
@@ -822,18 +846,27 @@ static so_default_dynlib dynlib_functions[] = {{"__aeabi_atexit", (uintptr_t)&__
                                                {"read", (uintptr_t)&import_placeholder},
                                                {"readdir", (uintptr_t)&import_placeholder},
                                                {"realloc", (uintptr_t)&vglRealloc},
-                                               {"remove", (uintptr_t)&import_placeholder}, // todo
-                                               {"rename", (uintptr_t)&import_placeholder}, // todo
+                                               {"recvfrom", (uintptr_t)&import_placeholder}, // todo
+                                               {"remove", (uintptr_t)&import_placeholder},   // todo
+                                               {"rename", (uintptr_t)&import_placeholder},   // todo
                                                {"rint", (uintptr_t)&rint},
+                                               {"rintf", (uintptr_t)&rintf},
                                                {"rmdir", (uintptr_t)&import_placeholder}, // TODO
+                                               {"sched_yield", (uintptr_t)&import_placeholder},
+                                               {"select", (uintptr_t)&import_placeholder},
+                                               {"sendto", (uintptr_t)&import_placeholder},
                                                {"setjmp", (uintptr_t)&import_placeholder},
-                                               {"setlocale", (uintptr_t)&import_placeholder}, // TODO
+                                               {"setsockopt", (uintptr_t)&import_placeholder},
                                                {"setvbuf", (uintptr_t)&import_placeholder},
+                                               {"shutdown", (uintptr_t)&import_placeholder},
                                                {"sin", (uintptr_t)&sin},
+                                               {"sincos", (uintptr_t)&sincos},
+                                               {"sincosf", (uintptr_t)&sincosf},
                                                {"sinf", (uintptr_t)&sinf},
                                                {"sinh", (uintptr_t)&sinh},
                                                {"slCreateEngine", (uintptr_t)&import_placeholder}, // TODO
                                                {"snprintf", (uintptr_t)&sceClibSnprintf},
+                                               {"socket", (uintptr_t)&import_placeholder},
                                                {"sprintf", (uintptr_t)&sprintf},
                                                {"sqrt", (uintptr_t)&sqrt},
                                                {"sqrtf", (uintptr_t)&sqrtf},
@@ -845,7 +878,8 @@ static so_default_dynlib dynlib_functions[] = {{"__aeabi_atexit", (uintptr_t)&__
                                                {"strcoll", (uintptr_t)&strcoll},
                                                {"strcpy", (uintptr_t)&strcpy},
                                                {"strerror", (uintptr_t)&strerror},
-                                               {"strftime", (uintptr_t)&import_placeholder}, // TODO
+                                               {"strerror_r", (uintptr_t)&import_placeholder}, // TODO !!!!
+                                               {"strftime", (uintptr_t)&import_placeholder},   // TODO
                                                {"strlen", (uintptr_t)&strlen},
                                                {"strncat", (uintptr_t)&strncat},
                                                {"strncmp", (uintptr_t)&strncmp},
@@ -855,6 +889,14 @@ static so_default_dynlib dynlib_functions[] = {{"__aeabi_atexit", (uintptr_t)&__
                                                {"strspn", (uintptr_t)&strspn},
                                                {"strstr", (uintptr_t)&strstr},
                                                {"strtod", (uintptr_t)&strtod},
+                                               {"strtoimax", (uintptr_t)&import_placeholder}, // TODO !!!!
+                                               {"strtol", (uintptr_t)&strtol},
+                                               {"strtoll", (uintptr_t)&strtoll},
+                                               {"strtoul", (uintptr_t)&strtoul},
+                                               {"strtoull", (uintptr_t)&strtoull},
+                                               {"strtoumax", (uintptr_t)&import_placeholder}, // TODO !!!!
+                                               {"strxfrm", (uintptr_t)&strxfrm},
+                                               {"syscall", (uintptr_t)&import_placeholder}, // TODO !!!!
                                                {"sysconf", (uintptr_t)&import_placeholder},
                                                {"system", (uintptr_t)&import_placeholder},
                                                {"tan", (uintptr_t)&tan},
@@ -870,16 +912,15 @@ static so_default_dynlib dynlib_functions[] = {{"__aeabi_atexit", (uintptr_t)&__
                                                {"ungetc", (uintptr_t)&import_placeholder},
                                                {"unlink", (uintptr_t)&import_placeholder},
                                                {"usleep", (uintptr_t)&sceKernelDelayThread},
+                                               {"vasprintf", (uintptr_t)&import_placeholder}, // TODO: implement this
+                                               {"vfprintf", (uintptr_t)&vfprintf},            // check these
                                                {"vprintf", (uintptr_t)&vprintf},
                                                {"vsnprintf", (uintptr_t)&sceClibVsnprintf},
                                                {"vsprintf", (uintptr_t)&vsprintf},
                                                {"vsscanf", (uintptr_t)&vsscanf},
-                                               {"wcscmp", (uintptr_t)&wcscmp_p},
-                                               {"wcslen", (uintptr_t)&wcslen_p},
-                                               {"wcsncpy", (uintptr_t)&wcsncpy_p},
-                                               {"wmemcpy", (uintptr_t)&wmemcpy_p}, // don't really need to hook these
-                                               {"wmemmove", (uintptr_t)&wmemmove_p},
-                                               {"wmemset", (uintptr_t)&wmemset_p},
+                                               {"wcscoll", (uintptr_t)&wcscoll},
+                                               {"wcsxfrm", (uintptr_t)&wcsxfrm},
+                                               {"wctob", (uintptr_t)&wctob},
                                                {"write", (uintptr_t)&import_placeholder}};
 
 static int check_kubridge()
