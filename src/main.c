@@ -485,8 +485,11 @@ FILE* fopen_hook(const char* filename, const char* mode)
     // }
 }
 
-void* malloc_fake(size_t size)
+static int malloc_count = 0;
+void*      malloc_fake(size_t size)
 {
+    log_info("malloc called: %d\tn. %d\n", size, malloc_count++);
+
     void* result = vglMalloc(size);
     return result;
 }
@@ -579,25 +582,30 @@ int wcscmp_p(const wchar_t* s1, const wchar_t* s2)
     return (int)(*s1 - *s2);
 }
 
+void* sceClibMemclr(void* dst, SceSize len)
+{
+    return sceClibMemset(dst, 0, len);
+}
+
 extern void* __aeabi_atexit;
 extern void* __cxa_atexit;
 extern void* __cxa_finalize;
 // extern void* __gnu_Unwind_Find_exidx; // idk
 extern void* __stack_chk_fail;
+extern void* __stack_chk_guard;
 
-static so_default_dynlib dynlib_functions[] = {{"__aeabi_atexit", (uintptr_t)&__aeabi_atexit},
-                                               {"__aeabi_memclr", (uintptr_t)&import_placeholder},
-                                               {"__aeabi_memclr4", (uintptr_t)&import_placeholder},
-                                               {"__aeabi_memclr8", (uintptr_t)&import_placeholder},
-                                               {"__aeabi_memcpy", (uintptr_t)&import_placeholder},
-                                               {"__aeabi_memcpy4", (uintptr_t)&import_placeholder},
-                                               {"__aeabi_memcpy8", (uintptr_t)&import_placeholder},
-                                               {"__aeabi_memmove", (uintptr_t)&import_placeholder},
-                                               {"__aeabi_memmove4", (uintptr_t)&import_placeholder},
-                                               {"__aeabi_memmove8", (uintptr_t)&import_placeholder},
-                                               {"__aeabi_memset", (uintptr_t)&import_placeholder},
-                                               {"__aeabi_memset4", (uintptr_t)&import_placeholder},
-                                               {"__aeabi_memset8", (uintptr_t)&import_placeholder},
+static so_default_dynlib dynlib_functions[] = {{"__aeabi_memclr", (uintptr_t)&sceClibMemclr},
+                                               {"__aeabi_memclr4", (uintptr_t)&sceClibMemclr},
+                                               {"__aeabi_memclr8", (uintptr_t)&sceClibMemclr},
+                                               {"__aeabi_memcpy", (uintptr_t)&sceClibMemcpy},
+                                               {"__aeabi_memcpy4", (uintptr_t)&sceClibMemcpy},
+                                               {"__aeabi_memcpy8", (uintptr_t)&sceClibMemcpy},
+                                               {"__aeabi_memmove", (uintptr_t)&sceClibMemmove},
+                                               {"__aeabi_memmove4", (uintptr_t)&sceClibMemmove},
+                                               {"__aeabi_memmove8", (uintptr_t)&sceClibMemmove},
+                                               {"__aeabi_memset", (uintptr_t)&sceClibMemset},
+                                               {"__aeabi_memset4", (uintptr_t)&sceClibMemset},
+                                               {"__aeabi_memset8", (uintptr_t)&sceClibMemset},
                                                {"__android_log_print", (uintptr_t)&__android_log_print},
                                                {"__android_log_vprint", (uintptr_t)&__android_log_vprint},
                                                {"__assert2", (uintptr_t)&__assert2}, // idk
@@ -606,7 +614,8 @@ static so_default_dynlib dynlib_functions[] = {{"__aeabi_atexit", (uintptr_t)&__
                                                {"__errno", (uintptr_t)&__errno},
                                                {"__gnu_Unwind_Find_exidx", (uintptr_t)&import_placeholder}, // idk
                                                {"__sF", (uintptr_t)&import_placeholder},
-                                               {"__stack_chk_fail", (uintptr_t)&import_placeholder},
+                                               {"__stack_chk_fail", (uintptr_t)&__stack_chk_fail},
+                                               {"__stack_chk_guard", (uintptr_t)&__stack_chk_guard},
                                                {"abort", (uintptr_t)&abort},
                                                {"accept", (uintptr_t)&import_placeholder},
                                                {"access", (uintptr_t)&import_placeholder},
