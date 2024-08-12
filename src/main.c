@@ -54,8 +54,8 @@ void* __wrap_memset(void* s, int c, size_t n)
 
 void import_placeholder()
 {
-    log_info("import placeholder called from syberia2v.%08x.\n", (uintptr_t)__builtin_return_address(0) - LOAD_ADDRESS);
-
+    log_info("import placeholder called from (?)libsyberia2.%08x.\n",
+             (uintptr_t)__builtin_return_address(0) - LOAD_ADDRESS);
     fatal_error("import placeholder called.\n");
 }
 
@@ -293,6 +293,7 @@ int pthread_cond_init_fake(pthread_cond_t** cnd, const int* condattr)
     *c = PTHREAD_COND_INITIALIZER;
 
     int ret = pthread_cond_init(c, NULL);
+
     if (ret < 0)
     {
         free(c);
@@ -407,8 +408,6 @@ typedef struct
 
 int pthread_key_create_fake(pthread_key_t* key, void (*destructor)(void*))
 {
-    log_info("pthread_key_create called.\n");
-
     int                   result = 0;
     pthread_key_t_struct* newkey;
 
@@ -427,8 +426,6 @@ int pthread_key_create_fake(pthread_key_t* key, void (*destructor)(void*))
     }
 
     *key = (pthread_key_t)newkey;
-
-    log_info("pthread_key_create finished.\n");
 
     return result;
 }
@@ -503,7 +500,7 @@ EGLBoolean eglInitialize_fake(EGLDisplay dpy, EGLint* major, EGLint* minor)
 void __assert2(const char* file, int line, const char* func, const char* expr)
 {
     log_info("assert failed: %s:%d %s: %s\n", file, line, func, expr);
-    // fatal_error("assert failed: %s:%d %s: %s\n", file, line, func, expr);
+    fatal_error("assert failed: %s:%d %s: %s\n", file, line, func, expr);
 }
 
 wchar_t* wmemcpy_p(wchar_t* dest, const wchar_t* src, size_t n)
@@ -592,6 +589,12 @@ void exit_hook(int status)
     fatal_error("exit was called. ec: %d\n", status);
 }
 
+void* AConfiguration_new_fake()
+{
+    log_info("AConfiguration_new called.\n");
+    return NULL;
+}
+
 extern void* __aeabi_atexit;
 extern void* __cxa_atexit;
 extern void* __cxa_finalize;
@@ -624,13 +627,13 @@ static so_default_dynlib dynlib_functions[] = {{"__aeabi_memclr", (uintptr_t)&sc
                                                {"abort", (uintptr_t)&abort},
                                                {"accept", (uintptr_t)&import_placeholder},
                                                {"access", (uintptr_t)&import_placeholder},
-                                               {"AConfiguration_delete", (uintptr_t)&import_placeholder},
-                                               {"AConfiguration_fromAssetManager", (uintptr_t)&import_placeholder},
-                                               {"AConfiguration_getCountry", (uintptr_t)&import_placeholder},
-                                               {"AConfiguration_getDensity", (uintptr_t)&import_placeholder},
-                                               {"AConfiguration_getLanguage", (uintptr_t)&import_placeholder},
-                                               {"AConfiguration_getOrientation", (uintptr_t)&import_placeholder},
-                                               {"AConfiguration_new", (uintptr_t)&import_placeholder},
+                                               {"AConfiguration_delete", (uintptr_t)&ret0},
+                                               {"AConfiguration_fromAssetManager", (uintptr_t)&ret0},
+                                               {"AConfiguration_getCountry", (uintptr_t)&ret0},
+                                               {"AConfiguration_getDensity", (uintptr_t)&ret0},
+                                               {"AConfiguration_getLanguage", (uintptr_t)&ret0},
+                                               {"AConfiguration_getOrientation", (uintptr_t)&ret0},
+                                               {"AConfiguration_new", (uintptr_t)&AConfiguration_new_fake},
                                                {"acos", (uintptr_t)&acos},
                                                {"acosf", (uintptr_t)&acosf},
                                                {"AInputEvent_getType", (uintptr_t)&import_placeholder},
@@ -642,9 +645,9 @@ static so_default_dynlib dynlib_functions[] = {{"__aeabi_memclr", (uintptr_t)&sc
                                                {"AInputQueue_preDispatchEvent", (uintptr_t)&import_placeholder},
                                                {"AKeyEvent_getAction", (uintptr_t)&import_placeholder},
                                                {"AKeyEvent_getKeyCode", (uintptr_t)&import_placeholder},
-                                               {"ALooper_addFd", (uintptr_t)&import_placeholder},
+                                               {"ALooper_addFd", (uintptr_t)&ret0},
                                                {"ALooper_pollAll", (uintptr_t)&import_placeholder},
-                                               {"ALooper_prepare", (uintptr_t)&import_placeholder},
+                                               {"ALooper_prepare", (uintptr_t)&ret0},
                                                {"AMotionEvent_getAction", (uintptr_t)&import_placeholder},
                                                {"AMotionEvent_getAxisValue", (uintptr_t)&import_placeholder},
                                                {"AMotionEvent_getPointerCount", (uintptr_t)&import_placeholder},
@@ -824,17 +827,17 @@ static so_default_dynlib dynlib_functions[] = {{"__aeabi_memclr", (uintptr_t)&sc
                                                {"nanosleep", (uintptr_t)&import_placeholder}, // TODO
                                                {"open", (uintptr_t)&import_placeholder},      // TODO
                                                {"opendir", (uintptr_t)&import_placeholder},   // TODO
-                                               {"pipe", (uintptr_t)&import_placeholder},      // todo
+                                               {"pipe", (uintptr_t)&ret0},
                                                {"pow", (uintptr_t)&pow},
                                                {"pthread_attr_init", (uintptr_t)&pthread_attr_init_fake},
-                                               {"pthread_attr_setdetachstate", (uintptr_t)&import_placeholder},
-                                               {"pthread_cond_broadcast", (uintptr_t)&import_placeholder},
-                                               {"pthread_cond_destroy", (uintptr_t)&import_placeholder},
-                                               {"pthread_cond_init", (uintptr_t)&import_placeholder},
-                                               {"pthread_cond_signal", (uintptr_t)&import_placeholder},
-                                               {"pthread_cond_timedwait", (uintptr_t)&import_placeholder},
-                                               {"pthread_cond_wait", (uintptr_t)&import_placeholder},
-                                               {"pthread_create", (uintptr_t)&import_placeholder},
+                                               {"pthread_attr_setdetachstate", (uintptr_t)&pthread_attr_setdetachstate},
+                                               {"pthread_cond_broadcast", (uintptr_t)&pthread_cond_broadcast_fake},
+                                               {"pthread_cond_destroy", (uintptr_t)&pthread_cond_destroy_fake},
+                                               {"pthread_cond_init", (uintptr_t)&pthread_cond_init_fake},
+                                               {"pthread_cond_signal", (uintptr_t)&pthread_cond_signal_fake},
+                                               {"pthread_cond_timedwait", (uintptr_t)&pthread_cond_timedwait_fake},
+                                               {"pthread_cond_wait", (uintptr_t)&pthread_cond_wait_fake},
+                                               {"pthread_create", (uintptr_t)&pthread_create_fake},
                                                {"pthread_detach", (uintptr_t)&import_placeholder},
                                                {"pthread_equal", (uintptr_t)&import_placeholder},
                                                {"pthread_getspecific", (uintptr_t)&import_placeholder},
@@ -844,7 +847,7 @@ static so_default_dynlib dynlib_functions[] = {{"__aeabi_memclr", (uintptr_t)&sc
                                                {"pthread_mutex_destroy", (uintptr_t)&pthread_mutex_destroy_fake},
                                                {"pthread_mutex_init", (uintptr_t)&pthread_mutex_init_fake},
                                                {"pthread_mutex_lock", (uintptr_t)&pthread_mutex_lock_fake},
-                                               {"pthread_mutex_trylock", (uintptr_t)&import_placeholder},
+                                               {"pthread_mutex_trylock", (uintptr_t)&pthread_mutex_trylock_fake},
                                                {"pthread_mutex_unlock", (uintptr_t)&pthread_mutex_unlock_fake},
                                                {"pthread_mutexattr_destroy", (uintptr_t)&import_placeholder},
                                                {"pthread_mutexattr_init", (uintptr_t)&import_placeholder},
@@ -943,7 +946,7 @@ static int check_kubridge()
     return _vshKernelSearchModuleByName("kubridge", search_unk) >= 0;
 }
 
-typedef struct game_activity_callbacks
+typedef struct game_activity_callback_table
 {
     void* onStart;                    // 0x00
     void* onResume;                   // 0x04
@@ -961,13 +964,33 @@ typedef struct game_activity_callbacks
     void* onContentRectChanged;       // 0x34
     void* onConfigurationChanged;     // 0x38
     void* onLowMemory;                // 0x3C
-} game_activity_callbacks_t;
+} game_activity_callback_table_t;
 
-typedef struct game_activity
+void call_me(uint32_t unk1, int* unk2, uint32_t unk3)
 {
-    game_activity_callbacks_t* callbacks_ptr; // 0x00
-    uint8_t                    padding[0x18];
-    void*                      instance; // 0x1C
+    log_info("call_me called.\n");
+    fatal_error("call_me called.\n");
+}
+
+typedef struct __attribute__((packed, aligned(1)))
+{
+    uint32_t pad[2]; // 0x00
+    uint16_t pad2;   // 0x08
+    void*    func;   // 0x10
+} unk_type2;
+
+typedef struct __attribute__((packed, aligned(1)))
+{
+    uint32_t    unk1; // 0x00
+    unk_type2** unk2; // 0x04 <--, then takes the 16th func
+} unk_type1;
+
+typedef struct __attribute__((packed, aligned(1))) game_activity
+{
+    game_activity_callback_table_t* callbacks_ptr; // 0x00
+    uint8_t                         padding[0x8];  // 0x04
+    unk_type1*                      unk;           // 0x0C <--
+    void*                           instance;      // 0x1C
     // [...]
 } game_activity_t; // 148 bytes? inited at 0
 
@@ -1014,7 +1037,11 @@ int main(int argc, char* argv[])
     printf("loading fake jni env...\n");
     jni_load();
 
-    game_activity_t activity = {0};
+    game_activity_t activity             = {0};
+    activity.callbacks_ptr               = malloc(sizeof(game_activity_callback_table_t));
+    activity.unk                         = malloc(sizeof(unk_type1));
+    activity.unk->unk2                   = malloc(sizeof(unk_type2));
+    *(int*)((activity.unk->unk2) + 0x10) = &call_me;
 
     int (*ANativeActivity_onCreate)(game_activity_t*, void*, size_t) =
         (void*)so_symbol(&syb2_mod, "ANativeActivity_onCreate");
