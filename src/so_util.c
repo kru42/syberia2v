@@ -175,13 +175,13 @@ int _so_load(so_module* mod, SceUID so_blockid, void* so_data, uintptr_t load_ad
                     kuKernelAllocMemBlock("rx_block", SCE_KERNEL_MEMBLOCK_TYPE_USER_RX, mod->patch_size, &opt);
                 if (res < 0)
                 {
-                    printf("Failed at allocating a patch block of %d bytes on address 0x%08X\n", mod->patch_size,
-                                opt.field_C);
+                    // printf("Failed at allocating a patch block of %d bytes on address 0x%08X\n", mod->patch_size,
+                    //             opt.field_C);
                     goto err_free_so;
                 }
                 else
                 {
-                    printf("Patch Block: Addr: 0x%08X Size: %d\n", opt.field_C, mod->patch_size);
+                    // printf("Patch Block: Addr: 0x%08X Size: %d\n", opt.field_C, mod->patch_size);
                 }
 
                 sceKernelGetMemBlockBase(mod->patch_blockid, &mod->patch_base);
@@ -196,13 +196,13 @@ int _so_load(so_module* mod, SceUID so_blockid, void* so_data, uintptr_t load_ad
                     kuKernelAllocMemBlock("rx_block", SCE_KERNEL_MEMBLOCK_TYPE_USER_RX, prog_size, &opt);
                 if (res < 0)
                 {
-                    printf("Failed at allocating a prog block of %d bytes on address 0x%08X\n", prog_size,
-                                opt.field_C);
+                    // printf("Failed at allocating a prog block of %d bytes on address 0x%08X\n", prog_size,
+                    //             opt.field_C);
                     goto err_free_so;
                 }
                 else
                 {
-                    printf("Prog Block: Addr: 0x%08X Size: %d\n", opt.field_C, prog_size);
+                    // printf("Prog Block: Addr: 0x%08X Size: %d\n", opt.field_C, prog_size);
                 }
 
                 sceKernelGetMemBlockBase(mod->text_blockid, &prog_data);
@@ -218,7 +218,7 @@ int _so_load(so_module* mod, SceUID so_blockid, void* so_data, uintptr_t load_ad
                 mod->cave_base = mod->cave_head = prog_data + mod->phdr[i].p_memsz;
                 mod->cave_base                  = ALIGN_MEM(mod->cave_base, 0x4);
                 mod->cave_head                  = mod->cave_base;
-                printf("code cave: %d bytes (@0x%08X).\n", mod->cave_size, mod->cave_base);
+                // printf("code cave: %d bytes (@0x%08X).\n", mod->cave_size, mod->cave_base);
 
                 data_addr = (uintptr_t)prog_data + prog_size;
             }
@@ -242,13 +242,13 @@ int _so_load(so_module* mod, SceUID so_blockid, void* so_data, uintptr_t load_ad
                     kuKernelAllocMemBlock("rw_block", SCE_KERNEL_MEMBLOCK_TYPE_USER_RW, prog_size, &opt);
                 if (res < 0)
                 {
-                    printf("Failed at allocating a rw block of %d bytes on address 0x%08X\n", prog_size,
-                                opt.field_C);
+                    // printf("Failed at allocating a rw block of %d bytes on address 0x%08X\n", prog_size,
+                    //             opt.field_C);
                     goto err_free_text;
                 }
                 else
                 {
-                    printf("RW Block: Addr: 0x%08X Size: %d\n", opt.field_C, prog_size);
+                    // printf("RW Block: Addr: 0x%08X Size: %d\n", opt.field_C, prog_size);
                 }
 
                 sceKernelGetMemBlockBase(mod->data_blockid[mod->n_data], &prog_data);
@@ -494,20 +494,7 @@ void reloc_err(uintptr_t got0)
             {
                 if (got0 == (uintptr_t)ptr)
                 {
-                    // fatal_error("Unknown symbol \"%s\" (%p).\n", curr->dynstr + sym->st_name, (void*)got0);
-
-                    printf("Unknown symbol \"%s\" (%p).\n", curr->dynstr + sym->st_name, (void*)got0);
-                    printf("Module Name: %s\n", curr->soname);
-                    printf("Symbol Name: %s\n", curr->dynstr + sym->st_name);
-                    printf("Symbol Address: %p\n", (void*)got0);
-                    printf("Symbol Type: %d\n", ELF32_ST_TYPE(sym->st_info));
-                    printf("Symbol Binding: %d\n", ELF32_ST_BIND(sym->st_info));
-                    printf("Symbol Size: %d\n", sym->st_size);
-                    printf("Symbol Visibility: %d\n", sym->st_other);
-                    printf("Symbol Section Index: %d\n", sym->st_shndx);
-
-                    sceKernelDelayThread(100 * 1000 * 1000);
-                    sceKernelExitProcess(1);
+                    fatal_error("Unknown symbol \"%s\" (%p).\n", curr->dynstr + sym->st_name, (void*)got0);
                 }
                 break;
             }
@@ -548,7 +535,7 @@ int so_resolve(so_module* mod, so_default_dynlib* default_dynlib, int size_defau
                     uintptr_t link = so_resolve_link(mod, mod->dynstr + sym->st_name);
                     if (link)
                     {
-                        printf("Resolved from dependencies: %s\n", mod->dynstr + sym->st_name);
+                        //printf("Resolved from dependencies: %s\n", mod->dynstr + sym->st_name);
                         if (type == R_ARM_ABS32)
                             *ptr += link;
                         else
@@ -582,7 +569,7 @@ int so_resolve(so_module* mod, so_default_dynlib* default_dynlib, int size_defau
                 {
                     if (type == R_ARM_JUMP_SLOT)
                     {
-                        printf("Unresolved import: %s\n", mod->dynstr + sym->st_name);
+                        // printf("Unresolved import: %s\n", mod->dynstr + sym->st_name);
                         *ptr = (uintptr_t)&plt0_stub;
                     }
                     else
@@ -798,8 +785,8 @@ void so_symbol_fix_ldmia(so_module* mod, const char* symbol)
         // Is this an LDMIA instruction with a R0-R12 base register?
         if (((inst & 0xFFF00000) == 0xE8900000) && (((inst >> 16) & 0xF) < 13))
         {
-            printf("Found possibly misaligned LDMIA on 0x%08X, trying to fix it... (instr: 0x%08X, to 0x%08X)\n",
-                        addr, *(uint32_t*)addr, mod->patch_head);
+            // printf("Found possibly misaligned LDMIA on 0x%08X, trying to fix it... (instr: 0x%08X, to 0x%08X)\n",
+            //             addr, *(uint32_t*)addr, mod->patch_head);
             trampoline_ldm(mod, addr);
         }
     }

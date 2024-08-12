@@ -27,6 +27,9 @@
 #include "util.h"
 #include "log.h"
 
+#define PROGRAM_NAME "syberia2v"
+#define PROGRAM_VERSION "0.1"
+
 #define LOAD_ADDRESS 0x98000000
 #define printf psvDebugScreenPrintf
 
@@ -166,6 +169,8 @@ int munmap(void* addr, size_t length)
 
 int pthread_mutexattr_init_fake(pthread_mutexattr_t** uid)
 {
+    log_info("pthread_mutexattr_init called.\n");
+
     pthread_mutexattr_t* m = calloc(1, sizeof(pthread_mutexattr_t));
     if (!m)
         return -1;
@@ -184,6 +189,8 @@ int pthread_mutexattr_init_fake(pthread_mutexattr_t** uid)
 
 int pthread_mutexattr_destroy_fake(pthread_mutexattr_t** m)
 {
+    log_info("pthread_mutexattr_destroy called.\n");
+
     if (m && *m)
     {
         pthread_mutexattr_destroy(*m);
@@ -195,12 +202,16 @@ int pthread_mutexattr_destroy_fake(pthread_mutexattr_t** m)
 
 int pthread_mutexattr_settype_fake(pthread_mutexattr_t** m, int type)
 {
+    log_info("pthread_mutexattr_settype called.\n");
+
     pthread_mutexattr_settype(*m, type);
     return 0;
 }
 
 int pthread_mutex_init_fake(pthread_mutex_t** uid, const pthread_mutexattr_t** mutexattr)
 {
+    log_info("pthread_mutex_init called.\n");
+
     pthread_mutex_t* m = vglCalloc(1, sizeof(pthread_mutex_t));
     if (!m)
         return -1;
@@ -219,6 +230,8 @@ int pthread_mutex_init_fake(pthread_mutex_t** uid, const pthread_mutexattr_t** m
 
 int pthread_mutex_destroy_fake(pthread_mutex_t** uid)
 {
+    log_info("pthread_mutex_destroy called.\n");
+
     if (uid && *uid && (uintptr_t)*uid > 0x8000)
     {
         pthread_mutex_destroy(*uid);
@@ -230,6 +243,8 @@ int pthread_mutex_destroy_fake(pthread_mutex_t** uid)
 
 int pthread_mutex_lock_fake(pthread_mutex_t** uid)
 {
+    log_info("pthread_mutex_lock called with %08x, thread: %08x\n", *uid, sceKernelGetThreadId());
+
     int ret = 0;
     if (!*uid)
     {
@@ -253,11 +268,13 @@ int pthread_mutex_lock_fake(pthread_mutex_t** uid)
     }
     if (ret < 0)
         return ret;
-    return pthread_mutex_lock(*uid);
+    return pthread_mutex_lock(**uid);
 }
 
 int pthread_mutex_unlock_fake(pthread_mutex_t** uid)
 {
+    log_info("pthread_mutex_unlock called with %08x, thread: %08x\n", *uid, sceKernelGetThreadId());
+
     int ret = 0;
     if (!*uid)
     {
@@ -280,12 +297,17 @@ int pthread_mutex_unlock_fake(pthread_mutex_t** uid)
         pthread_mutexattr_destroy_fake(&attr);
     }
     if (ret < 0)
+    {
         return ret;
-    return pthread_mutex_unlock(*uid);
+    }
+
+    return pthread_mutex_unlock(**uid);
 }
 
 int pthread_cond_init_fake(pthread_cond_t** cnd, const int* condattr)
 {
+    log_info("pthread_cond_init called.\n");
+
     pthread_cond_t* c = vglCalloc(1, sizeof(pthread_cond_t));
     if (!c)
         return -1;
@@ -307,6 +329,8 @@ int pthread_cond_init_fake(pthread_cond_t** cnd, const int* condattr)
 
 int pthread_cond_broadcast_fake(pthread_cond_t** cnd)
 {
+    log_info("pthread_cond_broadcast called.\n");
+
     if (!*cnd)
     {
         if (pthread_cond_init_fake(cnd, NULL) < 0)
@@ -317,6 +341,8 @@ int pthread_cond_broadcast_fake(pthread_cond_t** cnd)
 
 int pthread_cond_signal_fake(pthread_cond_t** cnd)
 {
+    log_info("pthread_cond_signal called.\n");
+
     if (!*cnd)
     {
         if (pthread_cond_init_fake(cnd, NULL) < 0)
@@ -327,6 +353,8 @@ int pthread_cond_signal_fake(pthread_cond_t** cnd)
 
 int pthread_cond_destroy_fake(pthread_cond_t** cnd)
 {
+    log_info("pthread_cond_destroy called.\n");
+
     if (cnd && *cnd)
     {
         pthread_cond_destroy(*cnd);
@@ -350,6 +378,8 @@ int pthread_cond_wait_fake(pthread_cond_t** cnd, pthread_mutex_t** mtx)
 
 int pthread_cond_timedwait_fake(pthread_cond_t** cnd, pthread_mutex_t** mtx, const struct timespec* t)
 {
+    log_info("pthread_cond_timedwait called.\n");
+
     if (!*cnd)
     {
         if (pthread_cond_init_fake(cnd, NULL) < 0)
@@ -358,13 +388,28 @@ int pthread_cond_timedwait_fake(pthread_cond_t** cnd, pthread_mutex_t** mtx, con
     return pthread_cond_timedwait(*cnd, *mtx, t);
 }
 
-int pthread_create_fake(pthread_t* thread, const void* unused, void* entry, void* arg)
+int pthread_attr_init_fake(pthread_attr_t** attr)
 {
+    log_info("pthread_attr_init called.\n");
+
+    if (!*attr)
+    {
+        *attr = vglCalloc(1, sizeof(pthread_attr_t));
+    }
+
+    return pthread_attr_init(*attr);
+}
+
+int pthread_create_fake(pthread_t* thread, const pthread_attr_t* attr, void* entry, void* arg)
+{
+    log_info("pthread_create called.\n");
     return pthread_create(thread, NULL, entry, arg);
 }
 
 int pthread_mutex_trylock_fake(pthread_mutex_t** uid)
 {
+    log_info("pthread_mutex_trylock called.\n");
+
     int ret = 0;
     if (!*uid)
     {
@@ -393,6 +438,8 @@ int pthread_mutex_trylock_fake(pthread_mutex_t** uid)
 
 int pthread_once_fake(volatile int* once_control, void (*init_routine)(void))
 {
+    log_info("pthread_once called.\n");
+
     if (!once_control || !init_routine)
         return -1;
     if (__sync_lock_test_and_set(once_control, 1) == 0)
@@ -408,6 +455,8 @@ typedef struct
 
 int pthread_key_create_fake(pthread_key_t* key, void (*destructor)(void*))
 {
+    log_info("pthread_key_create called.\n");
+
     int                   result = 0;
     pthread_key_t_struct* newkey;
 
@@ -447,6 +496,8 @@ int pthread_key_create_fake(pthread_key_t* key, void (*destructor)(void*))
 
 int pthread_key_delete_fake(pthread_key_t* key)
 {
+    log_info("pthread_key_delete called.\n");
+
     if (key)
     {
         pthread_key_delete(*key);
@@ -454,16 +505,6 @@ int pthread_key_delete_fake(pthread_key_t* key)
     }
 
     return 0;
-}
-
-int pthread_attr_init_fake(pthread_attr_t** attr)
-{
-    if (!*attr)
-    {
-        *attr = vglCalloc(1, sizeof(pthread_attr_t));
-    }
-
-    return pthread_attr_init(*attr);
 }
 
 FILE* fopen_hook(const char* filename, const char* mode)
@@ -946,25 +987,25 @@ static int check_kubridge()
     return _vshKernelSearchModuleByName("kubridge", search_unk) >= 0;
 }
 
-typedef struct game_activity_callback_table
-{
-    void* onStart;                    // 0x00
-    void* onResume;                   // 0x04
-    void* onSaveInstanceState;        // 0x08
-    void* onPause;                    // 0x0C
-    void* onStop;                     // 0x10
-    void* onDestroy;                  // 0x14
-    void* onWindowFocusChanged;       // 0x18
-    void* onNativeWindowCreated;      // 0x1C
-    void* onNativeWindowResized;      // 0x20
-    void* onNativeWindowRedrawNeeded; // 0x24
-    void* onNativeWindowDestroyed;    // 0x28
-    void* onInputQueueCreated;        // 0x2C
-    void* onInputQueueDestroyed;      // 0x30
-    void* onContentRectChanged;       // 0x34
-    void* onConfigurationChanged;     // 0x38
-    void* onLowMemory;                // 0x3C
-} game_activity_callback_table_t;
+// typedef struct game_activity_callback_table
+// {
+//     void* onStart;                    // 0x00
+//     void* onResume;                   // 0x04
+//     void* onSaveInstanceState;        // 0x08
+//     void* onPause;                    // 0x0C
+//     void* onStop;                     // 0x10
+//     void* onDestroy;                  // 0x14
+//     void* onWindowFocusChanged;       // 0x18
+//     void* onNativeWindowCreated;      // 0x1C
+//     void* onNativeWindowResized;      // 0x20
+//     void* onNativeWindowRedrawNeeded; // 0x24
+//     void* onNativeWindowDestroyed;    // 0x28
+//     void* onInputQueueCreated;        // 0x2C
+//     void* onInputQueueDestroyed;      // 0x30
+//     void* onContentRectChanged;       // 0x34
+//     void* onConfigurationChanged;     // 0x38
+//     void* onLowMemory;                // 0x3C
+// } game_activity_callback_table_t;
 
 void call_me(uint32_t unk1, int* unk2, uint32_t unk3)
 {
@@ -972,27 +1013,28 @@ void call_me(uint32_t unk1, int* unk2, uint32_t unk3)
     fatal_error("call_me called.\n");
 }
 
-typedef struct __attribute__((packed, aligned(1)))
-{
-    uint32_t pad[2]; // 0x00
-    uint16_t pad2;   // 0x08
-    void*    func;   // 0x10
-} unk_type2;
+//
+// eh I should look into ndk but I'm lazy and dysfunctional
+//
+typedef void(__fastcall* func_t)(uintptr_t, int*, uintptr_t);
 
-typedef struct __attribute__((packed, aligned(1)))
+typedef struct __attribute__((packed, aligned(1))) func_table
 {
-    uint32_t    unk1; // 0x00
-    unk_type2** unk2; // 0x04 <--, then takes the 16th func
-} unk_type1;
+    func_t* func_ptrs; // array of function pointers
+} func_table_t;
+
+typedef struct __attribute__((packed, aligned(1))) unk_type1
+{
+    uint32_t      unk1;       // 0x00
+    func_table_t* func_table; // 0x04
+} unk_type1_t;
 
 typedef struct __attribute__((packed, aligned(1))) game_activity
 {
-    game_activity_callback_table_t* callbacks_ptr; // 0x00
-    uint8_t                         padding[0x8];  // 0x04
-    unk_type1*                      unk;           // 0x0C <--
-    void*                           instance;      // 0x1C
-    // [...]
-} game_activity_t; // 148 bytes? inited at 0
+    unk_type1_t* unk1;          // 0x00
+    uint8_t      padding[0x18]; // 0x04
+    void*        instance;      // 0x1C
+} game_activity_t;              // 148 bytes? inited at 0
 
 extern void* __cxa_guard_acquire;
 extern void* __cxa_guard_release;
@@ -1000,10 +1042,9 @@ extern void* __cxa_guard_release;
 int main(int argc, char* argv[])
 {
     psvDebugScreenInit();
-    printf("======== syberia2v ========\n");
-    printf("initializing...\n");
+    printf(PROGRAM_NAME " " PROGRAM_VERSION "\n");
 
-    log_info("======== syberia2v ========\n");
+    log_info(PROGRAM_NAME " " PROGRAM_VERSION " log initialized\n");
 
     sceCtrlSetSamplingModeExt(SCE_CTRL_MODE_ANALOG_WIDE);
     sceTouchSetSamplingState(SCE_TOUCH_PORT_FRONT, SCE_TOUCH_SAMPLING_STATE_START);
@@ -1015,33 +1056,36 @@ int main(int argc, char* argv[])
     if (check_kubridge() < 0)
         fatal_error("kubridge is not loaded.\ninstall it and reboot.");
 
-    printf("loading libsyberia2.so...\n");
+    printf("loading libsyberia2.so file\n");
     if (so_file_load(&syb2_mod, DATA_PATH "/libsyberia2.so", LOAD_ADDRESS) < 0)
         fatal_error("failed to load libsyberia2.so.");
 
-    printf("relocating libsyberia2.so...\n");
+    printf("relocating libsyberia2.so\n");
     so_relocate(&syb2_mod);
 
-    printf("resolving libsyberia2.so imports...\n");
+    printf("resolving libsyberia2.so imports\n");
     so_resolve(&syb2_mod, dynlib_functions, sizeof(dynlib_functions), 0);
 
     printf("flushing and initializing .so modules...\n");
     so_flush_caches(&syb2_mod);
     so_initialize(&syb2_mod);
 
-    log_info("libsyberia2.so loaded and initialized.\n");
+    printf("libsyberia2.so loaded\n");
+    log_info("libsyberia2.so loaded and initialized\n");
 
     // printf("hooking game...\n");
     // patch_game();
 
-    printf("loading fake jni env...\n");
+    printf("loading fake jni env\n");
     jni_load();
 
     game_activity_t activity             = {0};
-    activity.callbacks_ptr               = malloc(sizeof(game_activity_callback_table_t));
-    activity.unk                         = malloc(sizeof(unk_type1));
-    activity.unk->unk2                   = malloc(sizeof(unk_type2));
-    *(int*)((activity.unk->unk2) + 0x10) = &call_me;
+    activity.unk1                        = malloc(sizeof(unk_type1_t));
+    activity.unk1->func_table            = malloc(sizeof(func_table_t));
+    activity.unk1->func_table->func_ptrs = malloc(16 * sizeof(func_t)); // game has only 16 callbacks?
+    // TODO: free the previous allocations on exit
+    // func_t* fptrs = activity.unk1->func_table->func_ptrs;
+    // fptrs[1]      = (func_t)&call_me;
 
     int (*ANativeActivity_onCreate)(game_activity_t*, void*, size_t) =
         (void*)so_symbol(&syb2_mod, "ANativeActivity_onCreate");
