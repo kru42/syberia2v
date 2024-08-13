@@ -27,7 +27,7 @@
 #include "util.h"
 #include "log.h"
 
-#define PROGRAM_NAME "syberia2v"
+#define PROGRAM_NAME    "syberia2v"
 #define PROGRAM_VERSION "0.1"
 
 #define LOAD_ADDRESS 0x98000000
@@ -131,26 +131,26 @@ int __android_log_print(int prio, const char* tag, const char* fmt, ...)
     va_list     list;
     static char string[0x8000];
 
-    log_info("---> %s | %s", __func__);
+    log_debug("---> %s | %s", __func__);
 
     va_start(list, fmt);
-    vslog_info(string, fmt, list);
+    vsprintf(string, fmt, list);
     va_end(list);
 
-    debuglog_info("[LOG] %s: %s", tag, string);
+    log_debug("[LOG] %s: %s", tag, string);
 
     return 0;
 }
 
 int __android_log_vprint(int prio, const char* tag, const char* fmt, va_list list)
 {
-    log_info("---> %s | %s", __func__);
+    log_debug("---> %s | %s", __func__);
 
     static char string[0x8000];
-    vslog_info(string, fmt, list);
+    vsprintf(string, fmt, list);
     va_end(list);
 
-    debuglog_info("[LOGV] %s: %s", tag, string);
+    log_debug("[LOGV] %s: %s", tag, string);
 
     return 0;
 }
@@ -168,7 +168,7 @@ int munmap(void* addr, size_t length)
 
 int pthread_mutexattr_init_fake(pthread_mutexattr_t** uid)
 {
-    log_info("pthread_mutexattr_init called.");
+    log_debug("pthread_mutexattr_init called.");
 
     pthread_mutexattr_t* m = calloc(1, sizeof(pthread_mutexattr_t));
     if (!m)
@@ -188,7 +188,7 @@ int pthread_mutexattr_init_fake(pthread_mutexattr_t** uid)
 
 int pthread_mutexattr_destroy_fake(pthread_mutexattr_t** m)
 {
-    log_info("pthread_mutexattr_destroy called.");
+    log_debug("pthread_mutexattr_destroy called.");
 
     if (m && *m)
     {
@@ -201,7 +201,7 @@ int pthread_mutexattr_destroy_fake(pthread_mutexattr_t** m)
 
 int pthread_mutexattr_settype_fake(pthread_mutexattr_t** m, int type)
 {
-    log_info("pthread_mutexattr_settype called.");
+    log_debug("pthread_mutexattr_settype called.");
 
     pthread_mutexattr_settype(*m, type);
     return 0;
@@ -209,7 +209,7 @@ int pthread_mutexattr_settype_fake(pthread_mutexattr_t** m, int type)
 
 int pthread_mutex_init_fake(pthread_mutex_t** uid, const pthread_mutexattr_t** mutexattr)
 {
-    log_info("pthread_mutex_init called.");
+    log_debug("pthread_mutex_init called.");
 
     pthread_mutex_t* m = vglCalloc(1, sizeof(pthread_mutex_t));
     if (!m)
@@ -229,7 +229,7 @@ int pthread_mutex_init_fake(pthread_mutex_t** uid, const pthread_mutexattr_t** m
 
 int pthread_mutex_destroy_fake(pthread_mutex_t** uid)
 {
-    log_info("pthread_mutex_destroy called.");
+    log_debug("pthread_mutex_destroy called.");
 
     if (uid && *uid && (uintptr_t)*uid > 0x8000)
     {
@@ -242,7 +242,7 @@ int pthread_mutex_destroy_fake(pthread_mutex_t** uid)
 
 int pthread_mutex_lock_fake(pthread_mutex_t** uid)
 {
-    log_info("pthread_mutex_lock called with %08x, thread: %08x", *uid, sceKernelGetThreadId());
+    log_debug("pthread_mutex_lock called with %08x, thread: %08x", *uid, sceKernelGetThreadId());
 
     int ret = 0;
     if (!*uid)
@@ -272,7 +272,7 @@ int pthread_mutex_lock_fake(pthread_mutex_t** uid)
 
 int pthread_mutex_unlock_fake(pthread_mutex_t** uid)
 {
-    log_info("pthread_mutex_unlock called with %08x, thread: %08x", *uid, sceKernelGetThreadId());
+    log_debug("pthread_mutex_unlock called with %08x, thread: %08x", *uid, sceKernelGetThreadId());
 
     int ret = 0;
     if (!*uid)
@@ -305,7 +305,7 @@ int pthread_mutex_unlock_fake(pthread_mutex_t** uid)
 
 int pthread_cond_init_fake(pthread_cond_t** cnd, const int* condattr)
 {
-    log_info("pthread_cond_init called.");
+    log_debug("pthread_cond_init called.");
 
     pthread_cond_t* c = vglCalloc(1, sizeof(pthread_cond_t));
     if (!c)
@@ -328,7 +328,7 @@ int pthread_cond_init_fake(pthread_cond_t** cnd, const int* condattr)
 
 int pthread_cond_broadcast_fake(pthread_cond_t** cnd)
 {
-    log_info("pthread_cond_broadcast called.");
+    log_debug("pthread_cond_broadcast called.");
 
     if (!*cnd)
     {
@@ -340,7 +340,7 @@ int pthread_cond_broadcast_fake(pthread_cond_t** cnd)
 
 int pthread_cond_signal_fake(pthread_cond_t** cnd)
 {
-    log_info("pthread_cond_signal called.");
+    log_debug("pthread_cond_signal called.");
 
     if (!*cnd)
     {
@@ -352,7 +352,7 @@ int pthread_cond_signal_fake(pthread_cond_t** cnd)
 
 int pthread_cond_destroy_fake(pthread_cond_t** cnd)
 {
-    log_info("pthread_cond_destroy called.");
+    log_debug("pthread_cond_destroy called.");
 
     if (cnd && *cnd)
     {
@@ -365,7 +365,7 @@ int pthread_cond_destroy_fake(pthread_cond_t** cnd)
 
 int pthread_cond_wait_fake(pthread_cond_t** cnd, pthread_mutex_t** mtx)
 {
-    log_info("pthread_cond_wait called.");
+    log_debug("pthread_cond_wait called.");
 
     if (!*cnd)
     {
@@ -377,7 +377,7 @@ int pthread_cond_wait_fake(pthread_cond_t** cnd, pthread_mutex_t** mtx)
 
 int pthread_cond_timedwait_fake(pthread_cond_t** cnd, pthread_mutex_t** mtx, const struct timespec* t)
 {
-    log_info("pthread_cond_timedwait called.");
+    log_debug("pthread_cond_timedwait called.");
 
     if (!*cnd)
     {
@@ -389,7 +389,7 @@ int pthread_cond_timedwait_fake(pthread_cond_t** cnd, pthread_mutex_t** mtx, con
 
 int pthread_attr_init_fake(pthread_attr_t** attr)
 {
-    log_info("pthread_attr_init called.");
+    log_debug("pthread_attr_init called.");
 
     if (!*attr)
     {
@@ -401,13 +401,13 @@ int pthread_attr_init_fake(pthread_attr_t** attr)
 
 int pthread_create_fake(pthread_t* thread, const pthread_attr_t* attr, void* entry, void* arg)
 {
-    log_info("pthread_create called.");
+    log_debug("pthread_create called.");
     return pthread_create(thread, NULL, entry, arg);
 }
 
 int pthread_mutex_trylock_fake(pthread_mutex_t** uid)
 {
-    log_info("pthread_mutex_trylock called.");
+    log_debug("pthread_mutex_trylock called.");
 
     int ret = 0;
     if (!*uid)
@@ -437,7 +437,7 @@ int pthread_mutex_trylock_fake(pthread_mutex_t** uid)
 
 int pthread_once_fake(volatile int* once_control, void (*init_routine)(void))
 {
-    log_info("pthread_once called.");
+    log_debug("pthread_once called.");
 
     if (!once_control || !init_routine)
         return -1;
@@ -454,7 +454,7 @@ typedef struct
 
 int pthread_key_create_fake(pthread_key_t* key, void (*destructor)(void*))
 {
-    log_info("pthread_key_create called.");
+    log_debug("pthread_key_create called.");
 
     int                   result = 0;
     pthread_key_t_struct* newkey;
@@ -480,7 +480,7 @@ int pthread_key_create_fake(pthread_key_t* key, void (*destructor)(void*))
 
 // int pthread_key_create_fake(pthread_key_t* key, void (*destructor)(void*))
 // {
-//     log_info("pthread_key_create_fake called.");
+//     log_debug("pthread_key_create_fake called.");
 
 //     if (!*key)
 //     {
@@ -488,14 +488,14 @@ int pthread_key_create_fake(pthread_key_t* key, void (*destructor)(void*))
 //     }
 
 //     int res = pthread_key_create(key, destructor);
-//     log_info("pthread_key_create: %d", res);
+//     log_debug("pthread_key_create: %d", res);
 
 //     return res;
 // }
 
 int pthread_key_delete_fake(pthread_key_t* key)
 {
-    log_info("pthread_key_delete called.");
+    log_debug("pthread_key_delete called.");
 
     if (key)
     {
@@ -922,9 +922,9 @@ static so_default_dynlib dynlib_functions[] = {{"__aeabi_memclr", (uintptr_t)&sc
                                                {"sinf", (uintptr_t)&sinf},
                                                {"sinh", (uintptr_t)&sinh},
                                                {"slCreateEngine", (uintptr_t)&import_placeholder}, // TODO
-                                               {"snlog_info", (uintptr_t)&sceClibSnlog_info},
+                                               {"snprintf", (uintptr_t)&sceClibSnprintf},
                                                {"socket", (uintptr_t)&import_placeholder},
-                                               {"slog_info", (uintptr_t)&slog_info},
+                                               {"sprintf", (uintptr_t)&sprintf},
                                                {"sqrt", (uintptr_t)&sqrt},
                                                {"sqrtf", (uintptr_t)&sqrtf},
                                                {"srand48", (uintptr_t)&srand48},
@@ -970,10 +970,10 @@ static so_default_dynlib dynlib_functions[] = {{"__aeabi_memclr", (uintptr_t)&sc
                                                {"unlink", (uintptr_t)&import_placeholder},
                                                {"usleep", (uintptr_t)&sceKernelDelayThread},
                                                {"vaslog_info", (uintptr_t)&import_placeholder}, // TODO: implement this
-                                               {"vflog_info", (uintptr_t)&vflog_info},            // check these
-                                               {"vlog_info", (uintptr_t)&vlog_info},
-                                               {"vsnlog_info", (uintptr_t)&sceClibVsnlog_info},
-                                               {"vslog_info", (uintptr_t)&vslog_info},
+                                               {"vfprintf", (uintptr_t)&vfprintf},              // check these
+                                               {"vprintf", (uintptr_t)&vprintf},
+                                               {"vsnprintf", (uintptr_t)&sceClibVsnprintf},
+                                               {"vsprintf", (uintptr_t)&vsprintf},
                                                {"vsscanf", (uintptr_t)&vsscanf},
                                                {"wcscoll", (uintptr_t)&wcscoll},
                                                {"wcsxfrm", (uintptr_t)&wcsxfrm},

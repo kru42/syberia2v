@@ -81,7 +81,7 @@ void log_terminate(void)
     }
 }
 
-static void log(log_level_t level, const char* format, ...)
+static void log_print(log_level_t level, const char* format, ...)
 {
     sceKernelLockMutex(log_mutex, 1, NULL);
 
@@ -121,7 +121,7 @@ void log_info(const char* format, ...)
 {
     va_list args;
     va_start(args, format);
-    log(LOG_INFO, format, args);
+    log_print(LOG_INFO, format, args);
     va_end(args);
 }
 
@@ -129,7 +129,7 @@ void log_err(const char* format, ...)
 {
     va_list args;
     va_start(args, format);
-    log(LOG_ERR, format, args);
+    log_print(LOG_ERR, format, args);
     va_end(args);
 }
 
@@ -137,7 +137,7 @@ void log_warn(const char* format, ...)
 {
     va_list args;
     va_start(args, format);
-    log(LOG_WARN, format, args);
+    log_print(LOG_WARN, format, args);
     va_end(args);
 }
 
@@ -145,13 +145,14 @@ void log_debug(const char* format, ...)
 {
     va_list args;
     va_start(args, format);
-    log(LOG_DEBUG
+    log_print(LOG_DEBUG, format, args);
+    va_end(args);
 }
 
 void log_fatal(const char* format, ...)
 {
     va_list args;
     va_start(args, format);
-    log(LOG_FATAL, format, args);
+    log_print(LOG_FATAL, format, args);
     va_end(args);
 }
