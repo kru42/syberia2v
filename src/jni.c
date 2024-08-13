@@ -51,8 +51,8 @@ static NameToMethodID name_to_method_ids[] = {
     {"getValueDataString", GET_VALUE_DATA_STRING},
 };
 
-char fake_vm[0x1000];
-char fake_env[0x1000];
+static char fake_vm[0x1000];
+static char fake_env[0x1000];
 
 void* CallObjectMethod(void* env, void* obj, int methodID, uintptr_t* args)
 {
@@ -84,7 +84,8 @@ void* CallStaticObjectMethod(void* env, void* obj, int methodID, uintptr_t* args
     case GET_FILES_DIR:
         return DATA_PATH;
     case GET_PACKAGE_PATH:
-        return DATA_PATH "/main.3.ru.buka.syberia2.obb";
+        return DATA_PATH
+            "/main.3.ru.buka.syberia2.obb"; // FIXME: this was probably a fmt string, check the original code
     case GET_LOCALE:
         // return getLocale();
         return "eu";
@@ -129,14 +130,11 @@ int NewObject(void* env, void* obj, int methodID, uintptr_t* args)
 void CallBooleanMethod(void* env, void* obj, int methodID, uintptr_t* args)
 {
     log_info("CallBooleanMethod called");
-
-    return;
 }
 
 int FindClass(void* env, const char* name)
 {
     log_info("FindClass called. name=%s", name);
-
     return 0;
 }
 

@@ -71,12 +71,15 @@ add_executable(${PROJECT_NAME}
   src/dialog.c
   src/log.c
   src/jni.c
+  src/sce_pthread.c
 )
 
 # Library to link to (drop the -l prefix). This will mostly be stubs.
 target_link_libraries(${PROJECT_NAME}
-  -Wl,--whole-archive pthread -Wl,--no-whole-archive
+  -Wl,--whole-archive
   pthread
+  -Wl,--no-whole-archive
+
   dl
   openal
   z

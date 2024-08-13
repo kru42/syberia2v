@@ -6,6 +6,9 @@
 
 #define LOG_FILE_PATH "ux0:data/syberia2v/syb2.log"
 
+void log_init();
+void log_terminate();
+
 // TODO: how do i clang-format this?
 void log_info(const char* format, ...);
 void log_err(const char* format, ...);

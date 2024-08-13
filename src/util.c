@@ -42,16 +42,18 @@ int debugPrintf(char* text, ...)
 
 int ret0(void)
 {
-    log_info("=====> ret0\n");
+    log_info("%s", __func__);
     return 0;
 }
 
 int ret1(void)
 {
+    log_info("%s", __func__);
     return 1;
 }
 
 int retm1(void)
 {
+    log_info("%s", __func__);
     return -1;
 }

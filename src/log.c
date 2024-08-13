@@ -1,12 +1,13 @@
-#include "log.h"
 #include <vitasdk.h>
 #include <wchar.h>
 #include <locale.h>
+#include <time.h>
 
+#include "log.h"
 #include "dialog.h"
 #include "common/debugScreen.h"
 
-#define LOG_PREFIX_FMT "[syb2::%s]: "
+#define LOG_PREFIX_FMT "[syb2:%s]: "
 
 #define LOG_INFO_NAME  "info"
 #define LOG_ERR_NAME   "err"
@@ -55,13 +56,13 @@ const char* get_log_level_name(log_level_t level)
 // crashes on error
 // TODO: don't crash, just log the error and ignore any further log calls
 //
-void log_init(void)
+void log_init()
 {
-    log_mutex = sceKernelCreateMutex("log_mutex", 0, 0, NULL);
-    psvDebugScreenInit();
-
     if (log_fd == 0)
     {
+        log_mutex = sceKernelCreateMutex("log_mutex", 0, 0, NULL);
+        psvDebugScreenInit();
+
         log_fd = sceIoOpen(LOG_FILE_PATH, SCE_O_WRONLY | SCE_O_CREAT | SCE_O_TRUNC, 0777);
         if (log_fd < 0)
         {
@@ -70,7 +71,7 @@ void log_init(void)
     }
 }
 
-void log_terminate(void)
+void log_terminate()
 {
     if (log_fd != 0)
     {
@@ -81,7 +82,7 @@ void log_terminate(void)
     }
 }
 
-static void log_print(log_level_t level, const char* format, ...)
+static void log_print(log_level_t level, const char* log_str)
 {
     sceKernelLockMutex(log_mutex, 1, NULL);
 
@@ -95,16 +96,20 @@ static void log_print(log_level_t level, const char* format, ...)
 
     if (log_fd != 0)
     {
-        char log_buffer[1024];
-        char log_buffer_with_prefix[1024 + 64];
+        // char time_buffer[64];
+        char log_buffer_with_prefix[1024 + 64 + 64];
 
-        va_list args;
-        va_start(args, format);
-        vsnprintf(log_buffer, sizeof(log_buffer), format, args);
-        va_end(args);
+        // // get current time
+        // time_t     now = time(NULL);
+        // struct tm* t   = localtime(&now);
+        // strftime(time_buffer, sizeof(time_buffer), "%Y-%m-%d %H:%M:%S", t);
 
         const char* level_name = get_log_level_name(level);
-        snprintf(log_buffer_with_prefix, sizeof(log_buffer_with_prefix), LOG_PREFIX_FMT "%s\n", level_name, log_buffer);
+        sprintf(log_buffer_with_prefix, LOG_PREFIX_FMT, level_name);
+
+        // append the log message to the prefix
+        strcat(log_buffer_with_prefix, log_str);
+        strcat(log_buffer_with_prefix, "\n");
 
         // write to log file
         sceIoWrite(log_fd, log_buffer_with_prefix, strlen(log_buffer_with_prefix));
@@ -119,40 +124,60 @@ static void log_print(log_level_t level, const char* format, ...)
 
 void log_info(const char* format, ...)
 {
+    char log_str[4096];
+
     va_list args;
     va_start(args, format);
-    log_print(LOG_INFO, format, args);
+    vsnprintf(log_str, sizeof(log_str), format, args);
     va_end(args);
+
+    log_print(LOG_INFO, log_str);
 }
 
 void log_err(const char* format, ...)
 {
+    char log_str[4096];
+
     va_list args;
     va_start(args, format);
-    log_print(LOG_ERR, format, args);
+    vsnprintf(log_str, sizeof(log_str), format, args);
     va_end(args);
+
+    log_print(LOG_INFO, log_str);
 }
 
 void log_warn(const char* format, ...)
 {
+    char log_str[4096];
+
     va_list args;
     va_start(args, format);
-    log_print(LOG_WARN, format, args);
+    vsnprintf(log_str, sizeof(log_str), format, args);
     va_end(args);
+
+    log_print(LOG_INFO, log_str);
 }
 
 void log_debug(const char* format, ...)
 {
+    char log_str[4096];
+
     va_list args;
     va_start(args, format);
-    log_print(LOG_DEBUG, format, args);
+    vsnprintf(log_str, sizeof(log_str), format, args);
     va_end(args);
+
+    log_print(LOG_INFO, log_str);
 }
 
 void log_fatal(const char* format, ...)
 {
+    char log_str[4096];
+
     va_list args;
     va_start(args, format);
-    log_print(LOG_FATAL, format, args);
+    vsnprintf(log_str, sizeof(log_str), format, args);
     va_end(args);
+
+    log_print(LOG_INFO, log_str);
 }

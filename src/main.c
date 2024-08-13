@@ -58,7 +58,9 @@ void import_placeholder()
 {
     log_info("import placeholder called from (?)libsyberia2.%08x.",
              (uintptr_t)__builtin_return_address(0) - LOAD_ADDRESS);
-    fatal_error("import placeholder called.");
+
+    fatal_error("import placeholder called from (?)libsyberia2.%08x.",
+                (uintptr_t)__builtin_return_address(0) - LOAD_ADDRESS);
 }
 
 void* dlopen_hook(const char* filename, int flags)
@@ -131,26 +133,23 @@ int __android_log_print(int prio, const char* tag, const char* fmt, ...)
     va_list     list;
     static char string[0x8000];
 
-    log_debug("---> %s | %s", __func__);
-
     va_start(list, fmt);
     vsprintf(string, fmt, list);
     va_end(list);
 
-    log_debug("[LOG] %s: %s", tag, string);
+    log_info("[%s] %s: %s", __func__, tag, string);
 
     return 0;
 }
 
 int __android_log_vprint(int prio, const char* tag, const char* fmt, va_list list)
 {
-    log_debug("---> %s | %s", __func__);
-
     static char string[0x8000];
+
     vsprintf(string, fmt, list);
     va_end(list);
 
-    log_debug("[LOGV] %s: %s", tag, string);
+    log_info("[%s] %s: %s", __func__, tag, string);
 
     return 0;
 }
@@ -1035,13 +1034,10 @@ typedef struct __attribute__((packed, aligned(1))) game_activity
     void*        instance;      // 0x1C
 } game_activity_t;              // 148 bytes? inited at 0
 
-extern void* __cxa_guard_acquire;
-extern void* __cxa_guard_release;
-
 int main(int argc, char* argv[])
 {
-    log_info(PROGRAM_NAME " " PROGRAM_VERSION);
-    log_info(PROGRAM_NAME " " PROGRAM_VERSION " log initialized");
+    log_init();
+    log_info(PROGRAM_NAME " " PROGRAM_VERSION " starting...");
 
     sceCtrlSetSamplingModeExt(SCE_CTRL_MODE_ANALOG_WIDE);
     sceTouchSetSamplingState(SCE_TOUCH_PORT_FRONT, SCE_TOUCH_SAMPLING_STATE_START);
@@ -1094,5 +1090,7 @@ int main(int argc, char* argv[])
     log_info("all done!! waiting 10 secs before exiting...");
 
     sceKernelDelayThread(10 * 1000000);
+
+    log_terminate();
     return 0;
 }
