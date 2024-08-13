@@ -135,14 +135,14 @@ void CallBooleanMethod(void* env, void* obj, int methodID, uintptr_t* args)
 
 int FindClass(void* env, const char* name)
 {
-    log_info("FindClass called. name=%s\n", name);
+    log_info("FindClass called. name=%s", name);
 
     return 0;
 }
 
 int GetMethodID(void* env, void* obj, const char* name, const char* sig)
 {
-    log_info("GetMethodID called. name=%s, sig=%s\n", name, sig);
+    log_info("GetMethodID called. name=%s, sig=%s", name, sig);
 
     for (int i = 0; i < sizeof(name_to_method_ids) / sizeof(NameToMethodID); i++)
     {
@@ -152,13 +152,13 @@ int GetMethodID(void* env, void* obj, const char* name, const char* sig)
         }
     }
 
-    log_info("GetMethodID: unknown method %s\n", name);
+    log_info("GetMethodID: unknown method %s", name);
     return UNKNOWN;
 }
 
 int GetEnv(void* vm, void** env, int r2)
 {
-    log_info("GetEnv called\n");
+    log_info("GetEnv called");
 
     memset(fake_env, 'A', sizeof(fake_env));
     *(uintptr_t*)(fake_env + 0x00)  = (uintptr_t)fake_env;
@@ -184,10 +184,10 @@ void jni_load(void)
     *(uintptr_t*)(fake_vm + 0x14) = (uintptr_t)ret0;
     *(uintptr_t*)(fake_vm + 0x18) = (uintptr_t)GetEnv;
 
-    log_info("calling JNI_OnLoad\n");
+    log_info("calling JNI_OnLoad");
 
     int (*JNI_OnLoad)(void* vm, void* reserved) = (void*)so_symbol(&syb2_mod, "JNI_OnLoad");
     JNI_OnLoad(fake_vm, NULL);
 
-    log_info("JNI_OnLoad called\n");
+    log_info("JNI_OnLoad called");
 }
